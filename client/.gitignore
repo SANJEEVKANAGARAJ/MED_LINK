@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Environment
+.env
+
+# Build artifacts
+dist/
+dist-ssr/
+
+# Editor
+.vscode/
+
+# Logs
+*.log
