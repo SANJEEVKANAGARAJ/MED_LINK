@@ -28,7 +28,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
           <div className={`${baseAnimClass}`}>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-slate-900 mb-6 leading-tight tracking-tight">
-              Modernize Your <span className="text-emerald-600">Medical Practice</span>
+              Your <span className="text-emerald-600">Medical Practice</span>
             </h1>
             <p className="text-lg md:text-xl text-slate-600 mb-10 max-w-xl">
               Effortlessly manage appointments and follow-ups with our intelligent medical management suite designed for the precision age.
@@ -40,7 +40,7 @@ export default function Home() {
               </Link>
             </div>
           </div>
-          
+
           <div className={`${baseAnimClass} delay-150 relative lg:h-[500px]`}>
 
             <div className="relative rounded-[32px] overflow-hidden shadow-2xl h-full">
@@ -66,9 +66,9 @@ export default function Home() {
             <span className="text-blue-600 font-bold uppercase tracking-widest text-sm">Capabilities</span>
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mt-3">Precision Practice Management</h2>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-6 lg:grid-cols-12 gap-6">
-            
+
             {/* Feature 1: Slot Booking */}
             <div className={`md:col-span-3 lg:col-span-4 bg-white p-8 rounded-3xl shadow-sm hover:shadow-xl transition-all duration-500 group ${baseAnimClass} delay-100`}>
               <div className="mb-8 overflow-hidden rounded-2xl aspect-video relative bg-slate-50 flex items-center justify-center">
@@ -89,7 +89,7 @@ export default function Home() {
                 </p>
               </div>
               <div className="w-full md:w-1/2 h-48 md:h-full relative bg-slate-800 rounded-2xl overflow-hidden flex items-center justify-center">
-                 <img alt="AI Summaries" className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-700 opacity-80 mix-blend-screen" src={images.feature_ai_summary} />
+                <img alt="AI Summaries" className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-700 opacity-80 mix-blend-screen" src={images.feature_ai_summary} />
               </div>
             </div>
 
@@ -107,7 +107,7 @@ export default function Home() {
             {/* Feature 4: Google Calendar */}
             <div className={`md:col-span-3 lg:col-span-4 bg-white p-8 rounded-3xl shadow-sm hover:shadow-xl transition-all duration-500 group ${baseAnimClass} delay-100 flex flex-col items-center text-center`}>
               <div className="w-24 h-24 mb-6 rounded-2xl overflow-hidden bg-slate-50 flex items-center justify-center">
-                 <img alt="Google Calendar Sync" className="w-20 h-20 object-contain transition-transform group-hover:rotate-6 duration-500" src={images.feature_calendar_sync} />
+                <img alt="Google Calendar Sync" className="w-20 h-20 object-contain transition-transform group-hover:rotate-6 duration-500" src={images.feature_calendar_sync} />
               </div>
               <h3 className="text-xl font-bold text-slate-900 mb-3">Google Calendar Sync</h3>
               <p className="text-slate-600">
