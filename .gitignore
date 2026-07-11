@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Environment files (NEVER commit these)
+.env
+.env.local
+.env.production
+server/.env
+client/.env
+server/scripts/.env
+
+# Build output
+dist/
+build/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Docker
+*.tar
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/

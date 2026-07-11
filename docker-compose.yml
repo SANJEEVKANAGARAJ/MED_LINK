@@ -43,6 +43,8 @@ services:
       - LLM_PROVIDER=gemini
       - GEMINI_API_KEY=AQ.Ab8RN6J8dZW5wherP2tzHwdHF87y2KMP5gM89pC9rRW6ciMy8g
       - GEMINI_MODEL=gemini-3.5-flash
+      - FRONTEND_URL=http://healthcare-app.duckdns.org
+      - GOOGLE_REDIRECT_URI=http://healthcare-app.duckdns.org/api/calendar/callback
     depends_on:
       - postgres
 
@@ -52,7 +54,7 @@ services:
       context: ./client
       dockerfile: Dockerfile
       args:
-        - VITE_API_URL=http://localhost:5000/api
+        - VITE_API_URL=/api
     container_name: healthcare-frontend
     restart: always
     ports:
