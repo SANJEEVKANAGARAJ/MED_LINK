@@ -61,4 +61,19 @@ router.put(
   appointmentsController.completeAppointment
 );
 
+// Approve an appointment for video call (Doctor only)
+router.put(
+  '/:id/approve',
+  authenticate,
+  authorize('doctor'),
+  appointmentsController.approveAppointment
+);
+
+// Fetch telehealth status
+router.get(
+  '/:id/telehealth-status',
+  authenticate,
+  appointmentsController.getTelehealthStatus
+);
+
 module.exports = router;

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import DashboardLayout from '../../components/DashboardLayout';
 import { patientApi } from '../../api/patient';
-import { Calendar, Clock, User } from 'lucide-react';
+import { Calendar, Clock, User, Video } from 'lucide-react';
 import { format, isAfter, isToday } from 'date-fns';
 import { toast } from 'react-hot-toast';
 import { SkeletonCard } from '../../components/ui/Skeleton';
@@ -137,19 +137,39 @@ const PatientDashboard = () => {
                     </div>
                   </div>
                 </div>
-                <div className="bg-gray-50 px-4 py-4 sm:px-6 flex justify-between">
+                <div className="bg-gray-50 px-4 py-4 sm:px-6 flex justify-between items-center">
                   <button
                     onClick={() => handleCancel(appointment.id)}
                     className="text-sm font-medium text-red-600 hover:text-red-500 transition-colors"
                   >
                     Cancel
                   </button>
-                  <Link
-                    to={`/patient/book/${appointment.doctor_id}?reschedule=true&appId=${appointment.id}`}
-                    className="text-sm font-medium text-emerald-600 hover:text-emerald-500 transition-colors"
-                  >
-                    Reschedule
-                  </Link>
+                  <div className="flex items-center space-x-3">
+                    {appointment.is_approved ? (
+                      <Link
+                        to={`/telehealth/${appointment.id}`}
+                        className="inline-flex items-center text-xs font-semibold bg-emerald-50 text-emerald-700 px-2.5 py-1.5 rounded-md border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                      >
+                        <Video className="h-3.5 w-3.5 mr-1" />
+                        Join Call
+                      </Link>
+                    ) : (
+                      <button
+                        disabled
+                        className="inline-flex items-center text-xs font-semibold bg-gray-100 text-gray-400 px-2.5 py-1.5 rounded-md border border-gray-200 cursor-not-allowed"
+                        title="Waiting for the doctor to approve and initiate the video consultation."
+                      >
+                        <Video className="h-3.5 w-3.5 mr-1 text-gray-300" />
+                        Pending Approval
+                      </button>
+                    )}
+                    <Link
+                      to={`/patient/book/${appointment.doctor_id}?reschedule=true&appId=${appointment.id}`}
+                      className="text-sm font-medium text-emerald-600 hover:text-emerald-500 transition-colors"
+                    >
+                      Reschedule
+                    </Link>
+                  </div>
                 </div>
               </div>
             );

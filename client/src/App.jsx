@@ -23,9 +23,11 @@ import PatientDashboard from './pages/patient/PatientDashboard';
 import SearchDoctors from './pages/patient/SearchDoctors';
 import DoctorProfile from './pages/patient/DoctorProfile';
 import BookingFlow from './pages/patient/BookingFlow';
+import BookingSuccess from './pages/patient/BookingSuccess';
 import AppointmentHistory from './pages/patient/AppointmentHistory';
 import DoctorDashboard from './pages/doctor/DoctorDashboard';
 import AppointmentVisit from './pages/doctor/AppointmentVisit';
+import TelehealthRoom from './pages/shared/TelehealthRoom';
 
 import { Toaster } from 'react-hot-toast';
 
@@ -74,7 +76,13 @@ export default function App() {
             <Route path="/patient/doctors" element={<SearchDoctors />} />
             <Route path="/patient/doctors/:doctorId" element={<DoctorProfile />} />
             <Route path="/patient/book/:doctorId" element={<BookingFlow />} />
+            <Route path="/patient/booking/success" element={<BookingSuccess />} />
             <Route path="/patient/history" element={<AppointmentHistory />} />
+          </Route>
+
+          {/* Protected Routes - Shared Doctor & Patient */}
+          <Route element={<ProtectedRoute allowedRoles={['doctor', 'patient']} />}>
+            <Route path="/telehealth/:appointmentId" element={<TelehealthRoom />} />
           </Route>
 
           {/* Catch all */}
@@ -84,3 +92,4 @@ export default function App() {
     </AuthProvider>
   );
 }
+

@@ -15,6 +15,7 @@ const calendarRoutes = require('./api/calendar/calendar.routes');
 const prescriptionsRoutes = require('./api/prescriptions/prescriptions.routes');
 const usersRoutes = require('./api/users/users.routes');
 const analyticsRoutes = require('./api/analytics/analytics.routes');
+const paymentsRoutes = require('./api/payments/payments.routes');
 const globalErrorHandler = require('./common/middleware/error.middleware');
 const initCronJobs = require('./jobs/cron');
 
@@ -26,6 +27,11 @@ app.use(cors({
   origin: process.env.FRONTEND_URL,
   credentials: true
 }));
+
+// Stripe Webhook needs the raw request body to construct/verify signatures
+const paymentsController = require('./api/payments/payments.controller');
+app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), paymentsController.handleWebhook.bind(paymentsController));
+
 app.use(express.json());
 app.use(cookieParser());
 
@@ -44,6 +50,7 @@ app.use('/api/appointments/:appointmentId', aiRoutes);
 app.use('/api/calendar', calendarRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/payments', paymentsRoutes);
 app.use('/api', prescriptionsRoutes);
 
 app.get('/health', (req, res) => {

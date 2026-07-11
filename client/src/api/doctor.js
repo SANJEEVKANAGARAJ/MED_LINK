@@ -27,5 +27,13 @@ export const doctorApi = {
 
   getAppointmentSymptoms: async (appointmentId) => {
     return await axiosInstance.get(`/patients/appointment/${appointmentId}/symptoms`);
+  },
+
+  approveAppointment: async (appointmentId) => {
+    return await axiosInstance.put(`/appointments/${appointmentId}/approve`);
+  },
+
+  getTelehealthStatus: async (appointmentId) => {
+    return await axiosInstance.get(`/appointments/${appointmentId}/telehealth-status`);
   }
 };

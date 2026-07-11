@@ -77,6 +77,7 @@ CREATE TABLE IF NOT EXISTS appointments (
     appointment_date DATE NOT NULL,
     slot_time TIME NOT NULL,
     status appointment_status NOT NULL DEFAULT 'booked',
+    is_approved BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -208,10 +209,29 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_appointments_patient ON appointments(patient_id);
 CREATE INDEX IF NOT EXISTS idx_appointments_doctor ON appointments(doctor_id);
 CREATE INDEX IF NOT EXISTS idx_ai_summaries_appointment ON ai_summaries(appointment_id);
 CREATE INDEX IF NOT EXISTS idx_prescriptions_appointment ON prescriptions(appointment_id);
 CREATE INDEX IF NOT EXISTS idx_medication_reminders_status ON medication_reminders(status);
 CREATE INDEX IF NOT EXISTS idx_email_queue_status ON email_queue(status);
+
+-- 7. Payment Sessions (Stripe Checkout)
+CREATE TABLE IF NOT EXISTS payment_sessions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    stripe_session_id VARCHAR(255) UNIQUE NOT NULL,
+    patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+    doctor_id UUID NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
+    appointment_date DATE NOT NULL,
+    slot_time TIME NOT NULL,
+    symptoms_text TEXT,
+    amount_cents INT NOT NULL,
+    currency VARCHAR(10) DEFAULT 'usd',
+    status VARCHAR(50) NOT NULL DEFAULT 'pending',  -- pending | paid | failed | slot_conflict
+    appointment_id UUID REFERENCES appointments(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_payment_sessions_appointment ON payment_sessions(appointment_id);
+CREATE INDEX IF NOT EXISTS idx_payment_sessions_stripe ON payment_sessions(stripe_session_id);
+

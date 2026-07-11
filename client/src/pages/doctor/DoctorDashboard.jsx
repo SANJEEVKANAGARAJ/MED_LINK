@@ -4,9 +4,10 @@ import { useAuth } from '../../context/AuthContext';
 import { doctorApi } from '../../api/doctor';
 import DashboardLayout from '../../components/DashboardLayout';
 import { format, isToday } from 'date-fns';
-import { Clock, Calendar as CalendarIcon, User, ChevronRight, Activity } from 'lucide-react';
+import { Clock, Calendar as CalendarIcon, User, ChevronRight, Activity, Video } from 'lucide-react';
 import CalendarConnect from '../../components/CalendarConnect';
 import { toast } from 'react-hot-toast';
+
 
 const DoctorDashboard = () => {
   const { user } = useAuth();
@@ -43,6 +44,18 @@ const DoctorDashboard = () => {
     };
     fetchData();
   }, []);
+
+  const handleApprove = async (apptId) => {
+    try {
+      await doctorApi.approveAppointment(apptId);
+      toast.success('Video call approved successfully!');
+      // Refresh appointments
+      const apptsRes = await doctorApi.getAppointments();
+      setAppointments(apptsRes.data.data?.data || []);
+    } catch (err) {
+      toast.error('Failed to approve video call: ' + (err.response?.data?.message || err.message));
+    }
+  };
 
   const todayAppointments = appointments.filter(app => {
     return app.status === 'booked' && isToday(new Date(app.appointment_date));
@@ -115,10 +128,31 @@ const DoctorDashboard = () => {
                         </h4>
                       </div>
                     </div>
-                    <div className="bg-gray-50 px-6 py-4 border-t border-gray-100">
+                    <div className="bg-gray-50 px-6 py-4 border-t border-gray-100 flex items-center justify-between space-x-3">
+                      {app.is_approved ? (
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => navigate(`/telehealth/${app.id}`)}
+                            className="inline-flex items-center text-xs font-semibold bg-blue-50 text-blue-700 px-2.5 py-1.5 rounded-md border border-blue-200 hover:bg-blue-100 transition-colors"
+                          >
+                            <Video className="h-3.5 w-3.5 mr-1" />
+                            Video Call
+                          </button>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                            Approved
+                          </span>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => handleApprove(app.id)}
+                          className="inline-flex items-center text-xs font-semibold bg-green-600 text-white px-2.5 py-1.5 rounded-md hover:bg-green-700 transition-colors"
+                        >
+                          Approve Call
+                        </button>
+                      )}
                       <button
                         onClick={() => navigate(`/doctor/visit/${app.id}`)}
-                        className="w-full flex items-center justify-center text-sm font-medium text-blue-600 hover:text-blue-500 transition-colors"
+                        className="flex items-center text-sm font-medium text-blue-600 hover:text-blue-500 transition-colors"
                       >
                         Start Visit
                         <ChevronRight className="ml-1 h-4 w-4" />
@@ -162,7 +196,28 @@ const DoctorDashboard = () => {
                             </div>
                           </div>
                         </div>
-                        <div>
+                        <div className="flex items-center space-x-3">
+                          {app.is_approved ? (
+                            <div className="flex items-center space-x-2">
+                              <button
+                                onClick={() => navigate(`/telehealth/${app.id}`)}
+                                className="inline-flex items-center px-3 py-1.5 border border-blue-200 text-xs font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                              >
+                                <Video className="h-3 w-3 mr-1" />
+                                Video Call
+                              </button>
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                Approved
+                              </span>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => handleApprove(app.id)}
+                              className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                            >
+                              Approve Call
+                            </button>
+                          )}
                           <button
                             onClick={() => navigate(`/doctor/visit/${app.id}`)}
                             className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"

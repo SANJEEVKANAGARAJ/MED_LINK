@@ -67,6 +67,24 @@ class AppointmentsController {
       next(error);
     }
   }
+
+  async approveAppointment(req, res, next) {
+    try {
+      const appointment = await appointmentsService.approveAppointment(req.params.id, req.user.id);
+      return successResponse(res, 200, 'Appointment approved successfully', appointment);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getTelehealthStatus(req, res, next) {
+    try {
+      const status = await appointmentsService.getTelehealthStatus(req.params.id, req.user.id, req.user.role);
+      return successResponse(res, 200, 'Telehealth status fetched successfully', status);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new AppointmentsController();

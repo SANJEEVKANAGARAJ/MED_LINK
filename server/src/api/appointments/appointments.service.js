@@ -301,9 +301,9 @@ class AppointmentsService {
     
     let query = `
       SELECT 
-        a.id, a.appointment_date, a.slot_time, a.status,
+        a.id, a.appointment_date, a.slot_time, a.status, a.is_approved,
         p.id AS patient_id, p.first_name AS patient_first_name, p.last_name AS patient_last_name,
-        d.id AS doctor_id, d.first_name AS doctor_first_name, d.last_name AS doctor_last_name, d.specialisation
+        d.id AS doctor_id, d.first_name AS doctor_first_name, d.last_name AS doctor_last_name, d.specialisation, d.slot_duration_minutes
       ${baseQuery}
       ORDER BY a.appointment_date DESC, a.slot_time DESC
       LIMIT $${params.length + 1} OFFSET $${params.length + 2}
@@ -587,6 +587,105 @@ class AppointmentsService {
     );
 
     return result.rows[0];
+  }
+
+  async approveAppointment(appointmentId, doctorUserId) {
+    const doctorResult = await db.query('SELECT id FROM doctors WHERE user_id = $1', [doctorUserId]);
+    if (doctorResult.rowCount === 0) {
+      throw { statusCode: 404, message: 'Doctor profile not found' };
+    }
+    const doctorId = doctorResult.rows[0].id;
+
+    const checkResult = await db.query(
+      `SELECT id, status FROM appointments WHERE id = $1 AND doctor_id = $2`,
+      [appointmentId, doctorId]
+    );
+
+    if (checkResult.rowCount === 0) {
+      throw { statusCode: 404, message: 'Appointment not found or unauthorized' };
+    }
+
+    const appt = checkResult.rows[0];
+    if (appt.status !== 'booked') {
+      throw { statusCode: 400, message: `Cannot approve a ${appt.status} appointment` };
+    }
+
+    const result = await db.query(
+      `UPDATE appointments SET is_approved = TRUE, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *`,
+      [appointmentId]
+    );
+
+    return result.rows[0];
+  }
+
+  async getTelehealthStatus(appointmentId, userId, role) {
+    const result = await db.query(
+      `SELECT a.id, a.appointment_date, a.slot_time, a.status, a.is_approved,
+              d.slot_duration_minutes,
+              p.user_id AS patient_user_id,
+              d.user_id AS doctor_user_id
+       FROM appointments a
+       JOIN patients p ON a.patient_id = p.id
+       JOIN doctors d ON a.doctor_id = d.id
+       WHERE a.id = $1`,
+      [appointmentId]
+    );
+
+    if (result.rowCount === 0) {
+      throw { statusCode: 404, message: 'Appointment not found' };
+    }
+
+    const appt = result.rows[0];
+
+    // Verify user has access to this appointment
+    if (role !== 'admin' && appt.patient_user_id !== userId && appt.doctor_user_id !== userId) {
+      throw { statusCode: 403, message: 'Forbidden' };
+    }
+
+    if (appt.status !== 'booked') {
+      return {
+        allowed: false,
+        reason: `This appointment status is '${appt.status}'. Video calls are only available for active booked appointments.`
+      };
+    }
+
+    if (!appt.is_approved) {
+      return {
+        allowed: false,
+        reason: 'This video call has not been approved by the doctor yet.'
+      };
+    }
+
+    // Check time window
+    const duration = appt.slot_duration_minutes || 30;
+    
+    // Parse appointment slot date & time
+    const dateStr = new Date(appt.appointment_date).toISOString().split('T')[0];
+    const start = new Date(`${dateStr}T${appt.slot_time}Z`);
+    const now = new Date();
+
+    // Allowed window: from 10 minutes before start to 30 minutes after duration
+    const windowStart = new Date(start.getTime() - 10 * 60 * 1000);
+    const windowEnd = new Date(start.getTime() + (duration + 30) * 60 * 1000);
+
+    if (now < windowStart) {
+      const displayTime = appt.slot_time.substring(0, 5);
+      return {
+        allowed: false,
+        reason: `The video call is scheduled for ${dateStr} at ${displayTime} (UTC). You can join starting 10 minutes before the scheduled time.`
+      };
+    }
+
+    if (now > windowEnd) {
+      return {
+        allowed: false,
+        reason: 'The time window for this appointment slot has passed.'
+      };
+    }
+
+    return {
+      allowed: true
+    };
   }
 }
 

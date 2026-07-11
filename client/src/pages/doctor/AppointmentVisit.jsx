@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { doctorApi } from '../../api/doctor';
 import DashboardLayout from '../../components/DashboardLayout';
 import { format } from 'date-fns';
-import { ArrowLeft, User, Activity, FileText, CheckCircle, Plus, Trash2, Clock, Calendar, Brain, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, User, Activity, FileText, CheckCircle, Plus, Trash2, Clock, Calendar, Brain, AlertTriangle, Mic, MicOff, Video } from 'lucide-react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -36,13 +36,67 @@ const AppointmentVisit = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
-  const { register, control, handleSubmit, formState: { errors } } = useForm({
+  const [isListening, setIsListening] = useState(false);
+  const [recognition, setRecognition] = useState(null);
+
+  const { register, control, handleSubmit, setValue, watch, formState: { errors } } = useForm({
     resolver: zodResolver(prescriptionSchema),
     defaultValues: {
       clinical_notes: '',
       medications: []
     }
   });
+
+  useEffect(() => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      const rec = new SpeechRecognition();
+      rec.continuous = true;
+      rec.interimResults = false;
+      rec.lang = 'en-US';
+
+      rec.onstart = () => {
+        setIsListening(true);
+      };
+
+      rec.onend = () => {
+        setIsListening(false);
+      };
+
+      rec.onresult = (event) => {
+        let finalTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript + ' ';
+          }
+        }
+        if (finalTranscript) {
+          const currentNotes = watch('clinical_notes') || '';
+          setValue('clinical_notes', currentNotes + finalTranscript);
+        }
+      };
+
+      setRecognition(rec);
+    }
+  }, [watch, setValue]);
+
+  const toggleListening = () => {
+    if (!recognition) {
+      toast.error('Speech recognition not supported in this browser. Please use Chrome, Safari, or Edge.');
+      return;
+    }
+
+    if (isListening) {
+      recognition.stop();
+    } else {
+      try {
+        recognition.start();
+      } catch (err) {
+        console.error('Failed to start speech recognition', err);
+        toast.error('Could not start speech recognition. Please check microphone permissions.');
+      }
+    }
+  };
 
   const { fields, append, remove } = useFieldArray({
     control,
@@ -93,6 +147,21 @@ const AppointmentVisit = () => {
     };
     fetchVisitData();
   }, [appointmentId]);
+
+  const handleStartVideoCall = async () => {
+    if (!appointment) return;
+    if (!appointment.is_approved) {
+      try {
+        await doctorApi.approveAppointment(appointmentId);
+        toast.success('Appointment approved for video call!');
+        setAppointment(prev => ({ ...prev, is_approved: true }));
+      } catch (err) {
+        toast.error('Failed to approve appointment: ' + (err.response?.data?.message || err.message));
+        return;
+      }
+    }
+    window.open(`/telehealth/${appointmentId}`, '_blank');
+  };
 
   const onSubmit = async (data) => {
     setIsSubmitting(true);
@@ -177,6 +246,7 @@ const AppointmentVisit = () => {
                   <span className="flex items-center"><Calendar className="h-4 w-4 mr-2 text-gray-400" /> {format(new Date(appointment.appointment_date), 'MMMM d, yyyy')}</span>
                   <span className="flex items-center"><Clock className="h-4 w-4 mr-2 text-gray-400" /> {appointment.slot_time.substring(0, 5)}</span>
                 </div>
+
               </div>
             </div>
 
@@ -255,8 +325,55 @@ const AppointmentVisit = () => {
             )}
           </div>
 
-          {/* ── Right Column: Clinical Notes & Prescription ── */}
-          <div className="w-full lg:w-2/3">
+          {/* ── Right Column: Consultation Mode Banner + Notes ── */}
+          <div className="w-full lg:w-2/3 space-y-5">
+
+            {/* ── Consultation Mode Decision Banner ── */}
+            {!success && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div className="bg-gradient-to-r from-slate-800 to-slate-700 px-6 py-4">
+                  <h2 className="text-base font-semibold text-white">How would you like to consult?</h2>
+                  <p className="text-xs text-slate-300 mt-0.5">Choose your consultation mode. You can still write clinical notes and issue a prescription after the video call.</p>
+                </div>
+                <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Option A: Video Call */}
+                  <button
+                    type="button"
+                    onClick={handleStartVideoCall}
+                    className="group flex flex-col items-center justify-center gap-3 p-5 rounded-xl border-2 border-blue-100 hover:border-blue-400 bg-blue-50 hover:bg-blue-100 transition-all duration-200 cursor-pointer w-full text-left"
+                  >
+                    <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center shadow-md group-hover:scale-110 transition-transform mx-auto">
+                      <Video className="h-6 w-6 text-white" />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-bold text-blue-800">
+                        {appointment?.is_approved ? 'Start Video Call' : 'Approve & Start Call'}
+                      </p>
+                      <p className="text-xs text-blue-600 mt-0.5">Opens in a new tab. Return here to write notes &amp; prescribe after the call.</p>
+                    </div>
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-200 text-blue-800 mx-auto">WebRTC · No install needed</span>
+                  </button>
+
+                  {/* Option B: Text Consultation */}
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById('clinical_notes')?.focus()}
+                    className="group flex flex-col items-center justify-center gap-3 p-5 rounded-xl border-2 border-emerald-100 hover:border-emerald-400 bg-emerald-50 hover:bg-emerald-100 transition-all duration-200 cursor-pointer"
+                  >
+                    <div className="w-12 h-12 rounded-full bg-emerald-600 flex items-center justify-center shadow-md group-hover:scale-110 transition-transform">
+                      <FileText className="h-6 w-6 text-white" />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-bold text-emerald-800">Text Consultation</p>
+                      <p className="text-xs text-emerald-600 mt-0.5">Review symptoms, write clinical notes, and issue a prescription directly below.</p>
+                    </div>
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-200 text-emerald-800">Recommended for simple cases</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ── Clinical Notes & Prescription Panel ── */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
               <div className="bg-gray-50 border-b border-gray-200 px-6 py-4 flex justify-between items-center">
                 <h2 className="text-lg font-medium text-gray-900 flex items-center">
@@ -282,9 +399,33 @@ const AppointmentVisit = () => {
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                   {/* Clinical Notes */}
                   <div>
-                    <label htmlFor="clinical_notes" className="block text-sm font-medium text-gray-700">
-                      Clinical Notes <span className="text-gray-400 font-normal">(Internal — not shared with patient)</span>
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label htmlFor="clinical_notes" className="block text-sm font-medium text-gray-700">
+                        Clinical Notes <span className="text-gray-400 font-normal">(Internal — not shared with patient)</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={toggleListening}
+                        disabled={success}
+                        className={`inline-flex items-center px-3 py-1 border rounded-full text-xs font-medium shadow-sm transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                          isListening
+                            ? 'bg-red-50 text-red-700 border-red-200 animate-pulse ring-2 ring-red-400'
+                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        {isListening ? (
+                          <>
+                            <MicOff className="h-3.5 w-3.5 mr-1 text-red-500" />
+                            Stop Dictating
+                          </>
+                        ) : (
+                          <>
+                            <Mic className="h-3.5 w-3.5 mr-1 text-blue-500" />
+                            Dictate Notes
+                          </>
+                        )}
+                      </button>
+                    </div>
                     <div className="mt-1">
                       <textarea
                         id="clinical_notes"
@@ -372,15 +513,20 @@ const AppointmentVisit = () => {
                     </div>
                   </div>
 
-                  <div className="pt-5 border-t border-gray-200 flex justify-end">
+                  <div className="pt-5 border-t border-gray-200 flex flex-col sm:flex-row gap-3 items-center justify-between">
+                    <p className="text-xs text-gray-400 flex items-center">
+                      <Brain className="h-3 w-3 mr-1 text-indigo-400" />
+                      An AI summary will be auto-generated and sent to the patient upon completion.
+                    </p>
                     <button
                       type="submit"
                       disabled={isSubmitting || success}
-                      className={`inline-flex justify-center items-center py-2.5 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                      className={`inline-flex justify-center items-center py-2.5 px-7 border border-transparent shadow-sm text-sm font-semibold rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors ${
                         (isSubmitting || success) ? 'opacity-70 cursor-not-allowed' : ''
                       }`}
                     >
-                      {isSubmitting ? 'Completing...' : success ? 'Success!' : 'Complete Visit & Generate AI Summary'}
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      {isSubmitting ? 'Completing Visit...' : success ? '✓ Visit Completed' : 'Complete Visit & Send Prescription'}
                     </button>
                   </div>
                 </form>

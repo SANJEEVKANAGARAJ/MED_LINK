@@ -14,4 +14,11 @@ export const patientApi = {
   getPatientProfile: () => axiosInstance.get('/patients/me'),
   getPatientHistory: (patientId) => axiosInstance.get(`/patients/${patientId}/history`),
   submitSymptoms: (appointmentId, data) => axiosInstance.post(`/appointments/${appointmentId}/symptoms`, data),
+
+  // Payment
+  createPaymentSession: (data) => axiosInstance.post('/payments/create-session', data),
+  verifyPayment: (sessionId) => axiosInstance.get(`/payments/verify?session_id=${sessionId}`),
+  getPaymentByAppointment: (appointmentId) => axiosInstance.get(`/payments/session/${appointmentId}`),
+  getTelehealthStatus: (appointmentId) => axiosInstance.get(`/appointments/${appointmentId}/telehealth-status`),
 };
+

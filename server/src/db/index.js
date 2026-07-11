@@ -15,6 +15,15 @@ pool.on('connect', () => {
   console.log('Connected to the PostgreSQL database.');
 });
 
+// Self-healing migration to ensure is_approved column exists
+pool.query('ALTER TABLE appointments ADD COLUMN IF NOT EXISTS is_approved BOOLEAN DEFAULT FALSE')
+  .then(() => {
+    console.log('Database migration: successfully ensured is_approved column exists in appointments table.');
+  })
+  .catch(err => {
+    console.error('Database migration error while adding column:', err);
+  });
+
 pool.on('error', (err) => {
   console.error('Unexpected error on idle client', err);
   process.exit(-1);
