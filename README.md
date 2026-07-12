@@ -7,7 +7,7 @@
 
 🚀 **Live Deployment:** [http://3.109.46.106](http://3.109.46.106) (Deployed on AWS EC2)
 
-A full-stack healthcare appointment platform with three role-based portals (Patient, Doctor, Admin). Patients can search doctors by specialisation, book time slots, and submit symptoms for AI-generated pre-visit summaries. Doctors manage appointments, write clinical notes, and issue prescriptions that trigger AI-generated post-visit summaries. Admins manage doctor profiles, working hours, and leave schedules. The system sends email notifications and syncs with Google Calendar for both parties.
+A full-stack healthcare appointment and checkout platform with four portal interfaces (Patient, Doctor, Admin, Pharmacy). Patients can search doctors, book slots via a secure hold-and-checkout lock, pay with Stripe, submit symptoms for AI pre-visit summaries, and buy prescribed medicines directly from pharmacies. Doctors manage schedules, conduct secure Jitsi WebRTC video consultations, write notes, and issue prescriptions with automated medication reminders. Pharmacies manage medicine inventories and ship patient orders. The system handles dual Google Calendar syncs and background email notifications.
 
 ## Table of Contents
 
@@ -18,13 +18,12 @@ A full-stack healthcare appointment platform with three role-based portals (Pati
 - [Environment Variables](#environment-variables)
 - [Database Schema](#database-schema)
 - [API Documentation](#api-documentation)
-- [LLM Prompts](#llm-prompts)
+- [LLM Prompts & Fallbacks](#llm-prompts--fallbacks)
 - [Google Calendar Setup](#google-calendar-setup)
 - [Background Jobs](#background-jobs)
 - [Testing](#testing)
 - [Deployment](#deployment)
 - [Assumptions](#assumptions)
-- [Future Improvements](#future-improvements)
 
 ---
 
@@ -33,19 +32,26 @@ A full-stack healthcare appointment platform with three role-based portals (Pati
 The application follows a three-tier client-server architecture:
 
 ```
-React (Vite) SPA  -->  Express.js REST API  -->  PostgreSQL
-                             |
-                    +--------+--------+--------+
-                    |        |        |        |
-                 Gemini   OpenAI  Nodemailer  Google
-                 (AI)     (AI)    (Email)     Calendar
+           React (Vite) Client SPA (Admin, Patient, Doctor, Pharmacy Portals)
+                                         |
+                                         | (HTTPS REST Requests & WebRTC)
+                                         v
+                                Express.js REST API
+                                         |
+                       +-----------------+-----------------+-----------------+
+                       |                 |                 |                 |
+                  PostgreSQL          Stripe          Gemini AI         Google Calendar
+               (Relational DB)     (Payments)      (Clinical Logs)     (Two-way Sync)
 ```
 
-- **Frontend**: React SPA with Vite, Tailwind CSS, React Query, React Hook Form, and react-router-dom. Organized into role-specific pages (`/pages/admin`, `/pages/doctor`, `/pages/patient`) with shared components.
-- **Backend**: Express.js with a modular, layered architecture. Each domain (`auth`, `appointments`, `doctors`, `patients`, `ai`, `calendar`, `email`, `prescriptions`) has its own directory with `routes > controller > service > schema` files.
-- **Database**: PostgreSQL with UUID primary keys, foreign key constraints, unique indexes for double-booking prevention, and transactions with pessimistic locking.
-- **Auth**: JWT access tokens + refresh tokens, role-based access control (admin, doctor, patient).
-- **Security**: Helmet, CORS (origin-restricted), rate limiting (100 req/15 min per IP), Zod input validation, parameterized SQL queries.
+* **Frontend**: React Single-Page Application (SPA) compiled with Vite, styled with Tailwind CSS, using React Query for server states, React Hook Form, and `react-router-dom` client-side routes.
+* **Backend**: Express.js with a modular, domain-driven API structure. All routes are secured with JWT access/refresh tokens, Zod validation schemas, rate limiting, and global error middleware.
+* **Database**: PostgreSQL connection pooled via `pg`, managing persistent states, unique constraints for slot concurrency, and self-healing tables initialization on boot.
+* **Integrations**:
+  * **Stripe Checkout**: Handles patient session redirects and async webhook fulfillment.
+  * **Google Calendar API**: Synchronizes events for both doctors and patients using OAuth refresh tokens.
+  * **Jitsi Meet API**: Facilitates WebRTC audio-video telehealth communication rooms.
+  * **Google Gemini AI**: Parses symptoms and summarizes clinical doctor notes into patient-friendly formats.
 
 ---
 
@@ -55,67 +61,69 @@ React (Vite) SPA  -->  Express.js REST API  -->  PostgreSQL
 healthcare-appointment-manager/
 ├── client/                          # React frontend
 │   └── src/
-│       ├── api/                     # Axios API clients
-│       │   ├── axios.js             # Axios instance with interceptors
-│       │   ├── auth.js              # Auth API calls
-│       │   ├── admin.js             # Admin API calls
-│       │   ├── doctor.js            # Doctor API calls
-│       │   ├── patient.js           # Patient API calls
-│       │   └── calendar.js          # Calendar API calls
+│       ├── api/                     # Axios API client callers
+│       │   ├── axios.js             # Axios instance & JWT interceptors
+│       │   ├── auth.js              # Identity API
+│       │   ├── admin.js             # Doctor & Pharmacy controls
+│       │   ├── doctor.js            # Consultations & Prescription endpoints
+│       │   ├── patient.js           # Bookings, payments & reviews
+│       │   └── calendar.js          # Calendar sync actions
 │       ├── components/              # Shared UI components
-│       │   ├── DashboardLayout.jsx  # Dashboard wrapper
-│       │   ├── ProtectedRoute.jsx   # Auth guard by role
-│       │   ├── GuestRoute.jsx       # Redirect if logged in
-│       │   ├── PublicLayout.jsx     # Public pages wrapper
-│       │   ├── CalendarConnect.jsx  # Google Calendar connect UI
-│       │   └── ui/                  # Reusable UI primitives
+│       │   ├── DashboardLayout.jsx  # Frame wrapper for sidebar & navbar
+│       │   ├── ProtectedRoute.jsx   # Role-based path authorization guard
+│       │   ├── GuestRoute.jsx       # Auth redirect for anonymous users
+│       │   ├── PublicLayout.jsx     # Marketing page layout
+│       │   └── CalendarConnect.jsx  # OAuth sync trigger
 │       ├── context/
-│       │   └── AuthContext.jsx      # Global auth state
+│       │   └── AuthContext.jsx      # Global React auth state context
 │       ├── pages/
-│       │   ├── admin/               # AdminDashboard, DoctorList, DoctorForm, LeaveManagement
-│       │   ├── doctor/              # DoctorDashboard, AppointmentVisit
-│       │   ├── patient/             # PatientDashboard, SearchDoctors, BookingFlow, AppointmentHistory
+│       │   ├── admin/               # AdminDashboard, DoctorForms, LeaveManagement, Pharmacies
+│       │   ├── doctor/              # DoctorDashboard, AppointmentVisit (clinical notes)
+│       │   ├── patient/             # PatientDashboard, DoctorSearch, BookingFlow, Marketplace
+│       │   ├── pharmacy/            # PharmacyDashboard, PharmacyLogin
+│       │   ├── shared/              # TelehealthRoom (Jitsi video conferencing)
 │       │   ├── public/              # Product, Features, Security, Privacy, Terms
-│       │   ├── Home.jsx
+│       │   ├── Home.jsx             # Main marketing index
 │       │   ├── Login.jsx
 │       │   ├── Register.jsx
 │       │   └── Unauthorized.jsx
-│       ├── App.jsx                  # Root component with routes
-│       └── main.jsx                 # Entry point
+│       ├── App.jsx                  # Main client routing declarations
+│       └── main.jsx                 # Client bootstrapping script
 │
 ├── server/                          # Express backend
 │   ├── scripts/
-│   │   ├── seed-admin.js            # Seed initial admin account
-│   │   ├── check-models.js          # Verify LLM API keys
-│   │   └── test-concurrency.js      # Manual concurrency test
+│   │   ├── seed-admin.js            # Initial administrator seeder
+│   │   ├── check-models.js          # AI keys health test
+│   │   └── test-concurrency.js      # Booking concurrency stress tester
 │   ├── src/
 │   │   ├── api/
-│   │   │   ├── auth/                # Register, login, logout
-│   │   │   ├── appointments/        # Slots, hold, book, cancel, reschedule
-│   │   │   ├── doctors/             # CRUD, availability, leave
-│   │   │   ├── patients/            # Patient profile
-│   │   │   ├── ai/                  # Pre-visit and post-visit summaries
-│   │   │   ├── calendar/            # Google Calendar OAuth and sync
-│   │   │   ├── email/               # Email service, queue, templates
-│   │   │   └── prescriptions/       # Prescriptions and medication reminders
+│   │   │   ├── auth/                # Identity creation, login & sessions
+│   │   │   ├── appointments/        # Bookings engine, holds, slots calculations
+│   │   │   ├── doctors/             # Doctor metadata, leaves & availability
+│   │   │   ├── patients/            # Patient profile files
+│   │   │   ├── ai/                  # Gemini summaries & clinical parsing
+│   │   │   ├── calendar/            # OAuth redirects & calendar mappings
+│   │   │   ├── email/               # Queuing systems & HTML templates
+│   │   │   ├── prescriptions/       # Doctor prescriptions & medication reminders
+│   │   │   ├── payments/            # Stripe sessions & webhook fulfillment
+│   │   │   ├── reviews/             # Feedback stars & comments
+│   │   │   └── pharmacy/            # Medicine stock, catalog & order status
 │   │   ├── common/
-│   │   │   ├── middleware/           # auth, validation, error handling
-│   │   │   ├── utils/               # JWT helpers, response formatters
-│   │   │   ├── config/              # App configuration
-│   │   │   └── constants/           # Shared constants
+│   │   │   ├── middleware/          # Security filters & body verification
+│   │   │   └── utils/               # Token signing & formatting helpers
 │   │   ├── db/
-│   │   │   ├── index.js             # PostgreSQL pool connection
-│   │   │   ├── schema.sql           # Full database schema
-│   │   │   └── setup.js             # DB initialization script
+│   │   │   ├── index.js             # Pg-pool driver, migrations runner & seeds
+│   │   │   ├── schema.sql           # Master DDL tables schema
+│   │   │   └── setup.js             # Standalone migrations executor
 │   │   ├── jobs/
-│   │   │   └── cron.js              # Scheduled background jobs
-│   │   └── index.js                 # Express app entry point
+│   │   │   └── cron.js              # Background scheduler script
+│   │   └── index.js                 # App runner and core middlewares
 │   └── tests/
-│       ├── unit/                    # Unit tests (Jest)
-│       └── integration/             # API integration tests (Supertest)
+│       ├── unit/                    # Core modules testing
+│       └── integration/             # End-to-end API logic verification
 │
-├── .env.example                     # Environment variable template
-├── SYSTEM_DESIGN.md                 # System design document
+├── .env.example                     # Environment schema example
+├── SYSTEM_DESIGN.md                 # Technical workflow specification
 └── README.md
 ```
 
@@ -123,425 +131,296 @@ healthcare-appointment-manager/
 
 ## Tech Stack
 
-### Frontend
+### Frontend Dependencies
+* **React 19 & React-DOM**: Framework rendering engine.
+* **Vite 8**: Frontend bundling and hot-reloading dev server.
+* **Tailwind CSS 4**: Utility styling engine.
+* **React Query 5**: Cache synchronizer for backend API states.
+* **React Hook Form**: Form inputs handler.
+* **React Router DOM**: Client navigation controller.
+* **Recharts**: Patient appointment/prescriptions analytics metrics.
+* **React-PDF Resolver**: Patient prescription PDF generation engine.
+* **Axios**: Promised API fetch caller.
 
-| Package          | Purpose                   |
-| ---------------- | ------------------------- |
-| React 19         | UI framework              |
-| Vite 8           | Build tool and dev server |
-| Tailwind CSS 4   | Utility-first styling     |
-| React Query      | Server state and caching  |
-| React Hook Form  | Form handling             |
-| Zod              | Client-side validation    |
-| react-router-dom | Client-side routing       |
-| axios            | HTTP client               |
-| lucide-react     | Icons                     |
-| date-fns         | Date formatting           |
-| react-hot-toast  | Toast notifications       |
-
-### Backend
-
-| Package            | Purpose                   |
-| ------------------ | ------------------------- |
-| Express 5          | HTTP framework            |
-| pg                 | PostgreSQL driver         |
-| bcrypt             | Password hashing          |
-| jsonwebtoken       | JWT auth                  |
-| zod                | Input validation          |
-| @google/genai      | Gemini LLM integration    |
-| openai             | OpenAI fallback           |
-| googleapis         | Google Calendar API       |
-| nodemailer         | Email delivery (SMTP)     |
-| node-cron          | Background job scheduling |
-| helmet             | HTTP security headers     |
-| cors               | Cross-origin config       |
-| express-rate-limit | API rate limiting         |
-| cookie-parser      | Cookie handling           |
+### Backend Dependencies
+* **Express 5**: Node framework.
+* **pg**: PostgreSQL client pool manager.
+* **stripe**: Merchant payment integration tool.
+* **@google/genai**: Gemini 2.5 generative intelligence client.
+* **googleapis**: Calendar events synchronization agent.
+* **nodemailer**: Outbox email handler.
+* **bcrypt & jsonwebtoken**: User authentication security.
+* **node-cron**: Scheduled background runners.
+* **zod**: Request payload checker.
+* **helmet, cors & express-rate-limit**: Server protection tools.
 
 ---
 
 ## Setup and Installation
 
 ### Prerequisites
+* **Node.js (v18+)** & **npm**
+* **PostgreSQL (v14+)** running locally or in a cloud instance
+* **Stripe Developer Account** (API credentials)
+* **Google Cloud Account** (OAuth Consent screen, Calendar API enabled)
+* **Gemini API Key** (or fallback keys)
+* **SMTP Credentials** (Gmail App password, Mailtrap, or Sendgrid)
 
-- Node.js (v18+)
-- PostgreSQL (v14+)
-- A Google Cloud project with Calendar API enabled (for calendar sync)
-- SMTP credentials (for email delivery)
-- API keys for Gemini and/or OpenAI (for AI summaries)
+### Installation Steps
 
-### Steps
+1. **Clone the project workspace**
+   ```bash
+   git clone https://github.com/rishi-tiwari023/healthcare-appointment-manager
+   cd healthcare-appointment-manager
+   ```
 
-1. **Clone the repository**
+2. **Set up configurations**
+   ```bash
+   # Create server configuration
+   cp server/.env.example server/.env
+   # Modify values in server/.env with your Stripe, Google, and Database configs.
+   ```
 
-```bash
-git clone https://github.com/rishi-tiwari023/healthcare-appointment-manager
-cd healthcare-appointment-manager
-```
+3. **Initialize the database**
+   ```bash
+   # Log into psql and create the database
+   createdb healthcare_db
+   
+   # Setup structure via standard schema script
+   psql -d healthcare_db -f server/src/db/schema.sql
+   ```
 
-2. **Set up environment variables**
-
-```bash
-cp .env.example .env
-# Edit .env with your actual values
-```
-
-3. **Set up the database**
-
-```bash
-# Create a PostgreSQL database
-createdb healthcare_db
-
-# Run the schema
-psql -d healthcare_db -f server/src/db/schema.sql
-```
-
-4. **Install dependencies and start**
-
-```bash
-# Backend
-cd server
-npm install
-node scripts/seed-admin.js   # Seed the initial admin account
-npm run dev
-
-# Frontend (in a new terminal)
-cd client
-npm install
-npm run dev
-```
-
-5. **Access the application**
-   - Frontend: `http://localhost:5173`
-   - Backend API: `http://localhost:5000`
+4. **Install & boot servers**
+   ```bash
+   # Boot Backend
+   cd server
+   npm install
+   node scripts/seed-admin.js   # Seed initial administrator profile
+   npm run dev                  # Starts server (defaults to port 5000)
+   
+   # Boot Frontend (In a separate terminal tab)
+   cd client
+   npm install
+   npm run dev                  # Launches Vite client (defaults to port 5173)
+   ```
 
 ---
 
 ## Environment Variables
 
-Copy `.env.example` to `.env` and fill in the values:
+Modify `/server/.env` using the fields listed below:
 
 ```env
-# Backend
 PORT=5000
+FRONTEND_URL=http://localhost:5173
 
-# Database (PostgreSQL)
+# Database configuration
 DB_HOST=localhost
 DB_PORT=5432
 DB_USER=postgres
 DB_PASSWORD=postgres
 DB_NAME=healthcare_db
 
-# Authentication
-JWT_SECRET=your_super_secret_jwt_key
-JWT_REFRESH_SECRET=your_super_secret_refresh_key
+# Stripe Gateway
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+CONSULTATION_FEE_USD=50
+
+# Authentication Keys
+JWT_SECRET=your_jwt_signing_key
+JWT_REFRESH_SECRET=your_refresh_signing_key
 JWT_EXPIRES_IN=1h
 JWT_REFRESH_EXPIRES_IN=7d
 
-# Google Calendar API (OAuth 2.0)
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
+# Google OAuth Setup
+GOOGLE_CLIENT_ID=google_client_id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=google_secret_key
 GOOGLE_REDIRECT_URI=http://localhost:5000/api/calendar/callback
 
-# Email (SMTP)
-SMTP_HOST=smtp.example.com
-SMTP_PORT=587
-SMTP_USER=your_smtp_username
-SMTP_PASS=your_smtp_password
-EMAIL_FROM=noreply@yourclinic.com
+# Email Outbox Settings
+SMTP_HOST=smtp.mailtrap.io
+SMTP_PORT=2525
+SMTP_USER=smtp_username
+SMTP_PASS=smtp_password
+EMAIL_FROM=appointments@yourclinic.com
 
-# LLM API Keys
-OPENAI_API_KEY=your_openai_api_key
-GEMINI_API_KEY=your_gemini_api_key
+# AI API
+GEMINI_API_KEY=gemini_api_key_here
+GEMINI_MODEL=gemini-2.5-flash
 
-# Cloudinary (Profile Image Uploads)
-CLOUDINARY_FOLDER=your_folder_name
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_cloudinary_api_key
-CLOUDINARY_API_SECRET=your_cloudinary_api_secret
-
-# Frontend
-VITE_API_URL=http://localhost:5000/api
-
-# Initial Admin Account
+# Initial Admin profile
 ADMIN_EMAIL=admin@example.com
-ADMIN_PASSWORD=this_is_password
-
-# CORS
-FRONTEND_URL=http://localhost:5173
+ADMIN_PASSWORD=admin123
 ```
 
 ---
 
 ## Database Schema
 
-The database uses 15 tables organized into six groups:
-
-### ER Diagram
-
 ```
-┌──────────┐      ┌──────────┐      ┌───────────────────┐
-│  users   │──1:1─│ patients │──1:N─│   appointments    │
-│          │      └──────────┘      │                   │
-│          │──1:1─┌──────────┐──1:N─│ (doctor_id, date, │
-│          │      │ doctors  │      │  slot_time)       │
-└──────────┘      └──────────┘      └───────────────────┘
-                       │                     │
-                       │1:N                  │1:1
-                       ▼                     ▼
-              ┌─────────────────┐   ┌──────────────┐
-              │ doctor_         │   │  symptoms    │
-              │ availability    │   └──────────────┘
-              └─────────────────┘          │
-                       │                   │1:1
-                       │                   ▼
-              ┌─────────────────┐   ┌──────────────┐
-              │ doctor_leave    │   │ ai_summaries │
-              └─────────────────┘   └──────────────┘
+              ┌───────────┐         ┌───────────┐         ┌──────────────┐
+              │   users   │───1:1───│ patients  │───1:N───│ appointments │
+              │           │         └───────────┘         │              │
+              │ (admin,   │───1:1───┌───────────┐───1:N───│ (doctor,     │
+              │  doctor,  │         │  doctors  │         │  date, slot) │
+              │  patient) │         └───────────┘         └──────────────┘
+              └───────────┘               │                      │
+                                          │1:N                   │1:1
+                                          ▼                      ▼
+                                 ┌─────────────────┐    ┌──────────────┐
+                                 │ doctor_leaves   │    │   symptoms   │
+                                 └─────────────────┘    └──────────────┘
+                                                                 │
+                                                                 │1:1
+                                                                 ▼
+┌───────────────────┐    ┌─────────────────┐            ┌──────────────┐
+│ appointment_holds │    │  prescriptions  │───1:N─────▶│ ai_summaries │
+│ (temp locks)      │    │ (medications    │            └──────────────┘
+└───────────────────┘    │  JSONB)         │
+                         └─────────────────┘
+                                  │
+                                  │1:N
+                                  ▼
+                         ┌─────────────────┐
+                         │   medication_   │
+                         │   reminders     │
+                         └─────────────────┘
 
-┌───────────────────┐     ┌───────────────────┐
-│ appointment_holds │     │  prescriptions    │──1:N─┌─────────────────────┐
-│ (temp slot locks) │     │                   │      │ medication_reminders│
-└───────────────────┘     └───────────────────┘      └─────────────────────┘
+┌───────────────┐  ┌──────────────────┐  ┌───────────────┐  ┌──────────────┐
+│  email_queue  │  │ payment_sessions │  │ doctor_reviews│  │ calendar_sync│
+└───────────────┘  └──────────────────┘  └───────────────┘  └──────────────┘
 
-┌──────────────┐  ┌───────────────┐  ┌──────────────┐  ┌──────────────┐
-│ email_queue  │  │ notifications │  │ calendar_sync│  │ audit_logs   │
-└──────────────┘  └───────────────┘  └──────────────┘  └──────────────┘
-
-┌────────────────────┐
-│ user_oauth_tokens  │
-└────────────────────┘
+┌───────────────┐  ┌─────────────────────┐  ┌─────────────────┐
+│  pharmacies   │  │ pharmacy_medicines  │  │ pharmacy_orders │
+└───────────────┘  └─────────────────────┘  └─────────────────┘
 ```
 
-### Key Tables
-
-| Table                | Purpose                                                 |
-| -------------------- | ------------------------------------------------------- |
-| users                | Shared auth data (email, password hash, role)           |
-| patients             | Patient profile (name, DOB, phone)                      |
-| doctors              | Doctor profile (specialisation, slot duration)          |
-| doctor_availability  | Working hours per day-of-week (start/end time)          |
-| doctor_leave         | Leave dates per doctor                                  |
-| appointments         | Booking records (patient, doctor, date, slot, status)   |
-| appointment_holds    | Temporary slot locks with expiry timestamp              |
-| symptoms             | Raw patient symptoms submitted per appointment          |
-| ai_summaries         | Pre-visit and post-visit LLM outputs                    |
-| prescriptions        | Doctor-issued prescriptions with medications (JSONB)    |
-| medication_reminders | Scheduled reminders derived from prescription frequency |
-| notifications        | In-app notification log                                 |
-| email_queue          | Outbound emails with status and retry tracking          |
-| calendar_sync        | Google Calendar event IDs mapped to appointments        |
-| user_oauth_tokens    | Google OAuth refresh tokens per user                    |
-| audit_logs           | System-wide change tracking                             |
-
-### Key Constraints
-
-- `idx_unique_active_appointment`: Unique partial index on `(doctor_id, appointment_date, slot_time) WHERE status != 'cancelled'` prevents double booking at the database level.
-- `idx_unique_slot_hold`: Unique index on `(doctor_id, appointment_date, slot_time)` ensures only one active hold per slot.
+### Table Relations and Concurrency Constraints
+* **`idx_unique_active_appointment`**: A PostgreSQL partial unique index on `appointments (doctor_id, appointment_date, slot_time) WHERE status != 'cancelled'`. This prevents race-condition booking confirmations.
+* **`idx_unique_slot_hold`**: Unique index on `appointment_holds (doctor_id, appointment_date, slot_time)` to block concurrent holds for the same slot.
+* **`doctor_reviews`**: Collects rating levels (1 to 5 stars) and reviews mapped to completed appointments.
+* **`payment_sessions`**: Connects appointment intents to Stripe Checkout sessions.
+* **`pharmacies` & `pharmacy_medicines`**: Houses drugstore user accounts, inventories, pricing indices, and medication sales.
+* **`pharmacy_orders`**: Prescriptions mapped to orders containing JSONB delivery history logs.
 
 ---
 
 ## API Documentation
 
-Base URL: `http://localhost:5000/api`
+Base Endpoint: `http://localhost:5000/api` (secured via JWT Headers: `Authorization: Bearer <access_token>`)
 
-All protected endpoints require: `Authorization: Bearer <access_token>`
+### Auth & User Portals
+* `POST /auth/register` - Create patient user profile.
+* `POST /auth/login` - Returns Access and Refresh tokens. Sets cookies.
+* `POST /auth/logout` - Disposes token cookies.
+* `GET /users/me` - Profile card data.
 
-### Auth
+### Doctor Schedules & Leaves
+* `GET /doctors` - Directory search.
+* `POST /doctors` - Create doctor profile (Admin only).
+* `GET /doctors/:id/availability` - Weekly hours check.
+* `POST /doctors/:id/availability` - Modify working intervals.
+* `POST /doctors/:id/leave` - Cancel all active slots on a specific date, trigger notification mails, and remove Google Calendar events.
 
-| Method | Endpoint       | Access | Description         |
-| ------ | -------------- | ------ | ------------------- |
-| POST   | /auth/register | Public | Register a patient  |
-| POST   | /auth/login    | Public | Login (returns JWT) |
-| POST   | /auth/logout   | Public | Logout              |
+### Bookings & Concurrency
+* `GET /appointments/slots?doctor_id=X&date=Y` - Free slot list calculations.
+* `POST /appointments/hold` - Claims a 5-minute hold on a slot.
+* `POST /appointments` - Checks active hold status and commits appointment creation.
+* `PUT /appointments/:id/cancel` - Cancel appointment and free slots.
+* `PUT /appointments/:id/reschedule` - Swaps active bookings with slot validation.
 
-### Doctors
+### Payments
+* `POST /payments/create-session` - Creates Stripe Checkout Session for patient consultation fees.
+* `GET /payments/verify` - Processes card transaction states and confirms slot holds.
+* `POST /payments/webhook` - Standard Stripe signature webhook validating checkout status.
 
-| Method | Endpoint                  | Access        | Description                  |
-| ------ | ------------------------- | ------------- | ---------------------------- |
-| GET    | /doctors                  | Authenticated | List all doctors             |
-| GET    | /doctors/me               | Doctor        | Get own profile              |
-| GET    | /doctors/:id              | Authenticated | Get doctor by ID             |
-| GET    | /doctors/:id/availability | Authenticated | Get doctor's weekly schedule |
-| POST   | /doctors                  | Admin         | Create a doctor profile      |
-| PUT    | /doctors/:id              | Admin         | Update doctor profile        |
-| DELETE | /doctors/:id              | Admin         | Delete a doctor              |
-| POST   | /doctors/:id/availability | Admin/Doctor  | Set weekly availability      |
-| GET    | /doctors/:id/leave        | Authenticated | Get doctor's leave dates     |
-| POST   | /doctors/:id/leave        | Admin/Doctor  | Add a leave date             |
-| DELETE | /doctors/:id/leave/:date  | Admin/Doctor  | Remove a leave date          |
+### Clinical AI & Telehealth
+* `POST /appointments/:appointmentId/symptoms` - Submit symptoms to trigger a pre-visit summary.
+* `POST /appointments/:appointmentId/notes` - Add notes to trigger a post-visit patient summary and prescription.
+* `GET /telehealth/:appointmentId` - Video consultation access check (WebRTC).
+* `POST /reviews` - Consultation review form submission.
 
-### Appointments
-
-| Method | Endpoint                     | Access  | Description                            |
-| ------ | ---------------------------- | ------- | -------------------------------------- |
-| GET    | /appointments/slots          | Auth    | Get available slots (doctor_id, date)  |
-| GET    | /appointments                | Auth    | Get user's appointments (by role)      |
-| POST   | /appointments/hold           | Patient | Hold a slot (5-min TTL)                |
-| POST   | /appointments                | Patient | Confirm booking (requires active hold) |
-| PUT    | /appointments/:id/cancel     | Auth    | Cancel an appointment                  |
-| PUT    | /appointments/:id/reschedule | Auth    | Reschedule (requires new hold)         |
-
-### AI Summaries
-
-| Method | Endpoint                              | Access  | Description                           |
-| ------ | ------------------------------------- | ------- | ------------------------------------- |
-| POST   | /appointments/:appointmentId/symptoms | Patient | Submit symptoms (pre-visit AI)        |
-| POST   | /appointments/:appointmentId/notes    | Doctor  | Submit clinical notes (post-visit AI) |
-
-### Prescriptions
-
-| Method | Endpoint                                   | Access | Description           |
-| ------ | ------------------------------------------ | ------ | --------------------- |
-| POST   | /appointments/:appointmentId/prescriptions | Doctor | Create a prescription |
-
-### Calendar
-
-| Method | Endpoint             | Access | Description                |
-| ------ | -------------------- | ------ | -------------------------- |
-| GET    | /calendar/auth       | Auth   | Get Google OAuth URL       |
-| GET    | /calendar/callback   | Public | OAuth callback handler     |
-| GET    | /calendar/status     | Auth   | Check calendar connection  |
-| POST   | /calendar/disconnect | Auth   | Disconnect Google Calendar |
-
-### Health Check
-
-| Method | Endpoint | Access | Description   |
-| ------ | -------- | ------ | ------------- |
-| GET    | /health  | Public | Server health |
+### Pharmacy & Marketplace
+* `POST /pharmacy/login` - Login to pharmacy dashboard.
+* `GET /marketplace/medicines` - Global directory of available medicines.
+* `GET /marketplace/medicines/:name` - Search pharmacies stocking a medicine, sorted cheapest first.
+* `GET /pharmacy/orders` - Pharmacy review queue of patient orders.
+* `PUT /pharmacy/orders/:orderId` - Update delivery status (pending, confirmed, dispatched, out_for_delivery, delivered) and write JSONB tracking updates.
 
 ---
 
-## LLM Prompts
+## LLM Prompts & Fallbacks
 
-The system uses two AI prompts, powered by Gemini (primary) with OpenAI as fallback.
+Clinical summaries are generated automatically via **Google Gemini AI** (using `gemini-2.5-flash` primary model).
 
-### Pre-Visit Summary Prompt
-
-Triggered when a patient submits symptoms for an appointment:
-
-```
-Analyze the following raw patient symptoms: "<symptoms>".
-
-Return a JSON object with the following schema:
+### Pre-Visit Prompt
+```json
+// Prompt: Analyze the raw patient symptoms: "<symptoms>"
 {
   "urgency": "Low" | "Medium" | "High",
-  "chief_complaint": "string (short summary)",
-  "suggested_questions_for_doctor": ["string", "string", "string"]
+  "chief_complaint": "concise symptoms overview",
+  "suggested_questions_for_doctor": ["question 1", "question 2"]
 }
 ```
 
-### Post-Visit Summary Prompt
-
-Triggered when a doctor submits clinical notes:
-
-```
-Analyze the following doctor's clinical notes: "<notes>".
-Translate them into patient-friendly language.
-
-Return a JSON object with the following schema:
+### Post-Visit Prompt
+```json
+// Prompt: Translate the clinical doctor notes: "<notes>"
 {
-  "patient_friendly_summary": "string",
-  "medication_instructions": ["string"],
-  "follow_up_advice": "string"
+  "patient_friendly_summary": "plain English explanation",
+  "medication_instructions": ["medication instruction line 1"],
+  "follow_up_advice": "follow up checklist text"
 }
 ```
 
-### Failure Handling
-
-1. Gemini is tried up to 3 times with exponential backoff (1s, 2s, 4s).
-2. If Gemini fails, OpenAI is tried up to 3 times with the same backoff.
-3. If both fail, a static `AI_SERVICE_UNAVAILABLE` response is returned. Raw data is still saved in the database.
-
----
-
-## Google Calendar Setup
-
-1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
-2. Create a new project (or select an existing one).
-3. Enable the **Google Calendar API** under "APIs & Services".
-4. Go to "Credentials" and create an **OAuth 2.0 Client ID** (Web application type).
-5. Add `http://localhost:5000/api/calendar/callback` as an authorized redirect URI.
-6. Copy the Client ID and Client Secret into your `.env` file:
-   ```
-   GOOGLE_CLIENT_ID=your_client_id
-   GOOGLE_CLIENT_SECRET=your_client_secret
-   GOOGLE_REDIRECT_URI=http://localhost:5000/api/calendar/callback
-   ```
-7. In the app, patients and doctors can connect their Google Calendar from their dashboard. Once connected, booking, reschedule, and cancellation actions automatically create, update, or delete calendar events for both parties.
+### Fallback Infrastructure
+* If the Gemini client encounters API limits or connection errors, the backend applies an **exponential backoff** retry up to 3 times.
+* If it fails completely, a **local fallback parser** is triggered. It uses regex key terms (e.g. *chest pain*, *bleeding*, *fever*) to determine urgency levels, and populates baseline diagnostic guidelines so that no patient records are lost.
 
 ---
 
 ## Background Jobs
 
-Four `node-cron` jobs run in the server process:
+Four background processes are run via `node-cron`:
 
-| Schedule       | Job                           | Description                                                           |
-| -------------- | ----------------------------- | --------------------------------------------------------------------- |
-| `* * * * *`    | Email Queue Processor         | Processes pending/failed emails from `email_queue` (up to 50 per run) |
-| `*/10 * * * *` | Medication Reminder Processor | Sends due medication reminders using `FOR UPDATE SKIP LOCKED`         |
-| `*/5 * * * *`  | Expired Hold Cleanup          | Deletes expired rows from `appointment_holds`                         |
-| `0 8 * * *`    | Appointment Reminder          | Enqueues reminder emails for appointments scheduled for the next day  |
+1. **Email Queue Processor (`* * * * *`)**: Processes the outbox mail database every minute, sending SMTP notifications and backing off failed attempts.
+2. **Medication Reminder Dispatcher (`*/10 * * * *`)**: Processes medication alarms due for delivery using `FOR UPDATE SKIP LOCKED` database locks to prevent duplication.
+3. **Expired Hold Cleanup (`*/5 * * * *`)**: Runs every 5 minutes to clean up expired temporary slot locks (`expires_at < NOW()`).
+4. **Appointment Reminder (`0 8 * * *`)**: Runs daily at 8:00 AM to notify patients of appointments booked for the next day.
 
 ---
 
 ## Testing
 
-The project uses **Jest** for unit tests and **Supertest** for integration tests.
-
-### Run Tests
+Ensure PostgreSQL test configurations are loaded. Execute tests using Jest:
 
 ```bash
 cd server
 npm run test
 ```
 
-### Test Coverage
-
-**Unit Tests** (`tests/unit/`):
-
-- `appointments.test.js`: Booking conflict detection, slot hold expiry, leave conflict detection
-- `authMiddleware.test.js`: Token validation, missing token, role-based access
-- `aiFallback.test.js`: LLM failure with regex fallback
-
-**Integration Tests** (`tests/integration/`):
-
-- `bookingFlow.test.js`: Booking endpoint, concurrent booking conflict
-- `authFlow.test.js`: Login success and failure scenarios
+Test coverage includes:
+* **Unit Tests**: Hold locks, scheduler calculations, database uniqueness indices, and local fallback parsing validation.
+* **Integration Tests**: Concurrent booking checks, login paths, and token auth logic.
 
 ---
 
 ## Deployment
 
-### Frontend (AWS EC2)
-
-1. Clone the repository on your EC2 instance.
-2. Navigate to the `client` directory and install dependencies.
-3. Add the environment variable: `VITE_API_URL=/api`
-4. Build the project using `npm run build`.
-5. Configure Nginx to serve the `client/dist` static files.
-
-### Backend (AWS EC2)
-
-1. Navigate to the `server` directory and install dependencies.
-2. Ensure PostgreSQL is installed, and run `node src/db/setup.js` to create the database schema.
-3. Configure the `.env` file with your database credentials (`DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`).
-4. Set the backend port to `PORT=5000` (proxied by Nginx).
-5. Update `FRONTEND_URL=http://3.109.46.106`.
-6. Update `GOOGLE_REDIRECT_URI=http://3.109.46.106/api/calendar/callback`.
-7. Run `node scripts/seed-admin.js` to seed the admin account.
-8. Start the backend using PM2: `pm2 start src/index.js --name "healthcare-api"`.
+### EC2 / Production Deployment Notes
+1. **Assets & Dist**: Build React production bundles via `npm run build` in the `/client` workspace and serve with Nginx.
+2. **Nginx Reverse Proxy**: Route `/api` calls to port `5000` (Node server instance).
+3. **PM2 Setup**: Start server using PM2 process manager:
+   ```bash
+   pm2 start src/index.js --name "healthcare-api"
+   ```
 
 ---
 
 ## Assumptions
 
-- Each doctor has a single slot duration (e.g., 30 minutes) applied across all their working hours.
-- A slot hold expires after 5 minutes if not confirmed.
-- The admin account is seeded via `scripts/seed-admin.js` and is not created through the registration flow.
-- Only patients can register through the frontend. Doctors are created by the admin.
-- Google Calendar sync is optional. If a user has not connected their calendar, booking still works normally.
-- Emails are sent via SMTP. The email queue retries up to 3 times before marking an email as dead.
-- AI summaries are best-effort. If both LLM providers fail, a fallback message is returned and the raw data is preserved.
-
----
+* **Weekly Availability**: Doctor weekly hours follow recurring configurations mapped out inside `doctor_availability` table.
+* **Single slot duration**: A slot duration defaults to 30 minutes.
+* **Google OAuth Credentials**: Disconnect status defaults gracefully without error if keys are missing.
+* **Email sending**: Backed by a retry attempt ceiling limit of 3.
+* **Stripe Webhook**: Secure checkout requires a configured `STRIPE_WEBHOOK_SECRET` variable in server environment settings.

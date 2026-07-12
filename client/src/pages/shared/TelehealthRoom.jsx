@@ -110,20 +110,28 @@ const TelehealthRoom = () => {
   const containerRef = useRef(null);
   const jitsiApiRef = useRef(null);
 
-  const exitAndNavigate = () => {
-    if (user?.role === 'patient') {
-      setShowRatingModal(true); // Show rating modal before leaving
-    } else {
-      navigate('/doctor/dashboard');
-    }
-  };
-
-  const handleExit = () => {
+  const handleManualExit = () => {
     if (jitsiApiRef.current) {
       jitsiApiRef.current.dispose();
       jitsiApiRef.current = null;
     }
-    exitAndNavigate();
+    if (user?.role === 'doctor') {
+      navigate('/doctor/dashboard');
+    } else {
+      navigate('/patient/dashboard');
+    }
+  };
+
+  const handleJitsiHangup = () => {
+    if (jitsiApiRef.current) {
+      jitsiApiRef.current.dispose();
+      jitsiApiRef.current = null;
+    }
+    if (user?.role === 'patient') {
+      setShowRatingModal(true); // Show rating modal only after the call ends from inside Jitsi
+    } else {
+      navigate('/doctor/dashboard');
+    }
   };
 
   const handleRatingClose = () => {
@@ -202,8 +210,8 @@ const TelehealthRoom = () => {
         },
       });
       jitsiApiRef.current = api;
-      api.addEventListener('videoConferenceLeft', handleExit);
-      api.addEventListener('readyToClose', handleExit);
+      api.addEventListener('videoConferenceLeft', handleJitsiHangup);
+      api.addEventListener('readyToClose', handleJitsiHangup);
     } catch (err) {
       console.error('Jitsi init error', err);
       toast.error('Unable to establish video connection room.');
@@ -264,7 +272,7 @@ const TelehealthRoom = () => {
             </div>
           </div>
           <button
-            onClick={handleExit}
+            onClick={handleManualExit}
             className="inline-flex items-center px-4 py-2 border border-slate-700 rounded-md text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
