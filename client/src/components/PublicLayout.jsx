@@ -115,17 +115,13 @@ export default function PublicLayout() {
       </div>
 
       <footer className="bg-white border-t border-slate-200 w-full py-12 px-6 md:px-12">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+        <div className="max-w-7xl mx-auto flex items-center justify-center">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => window.location.href = '/'}>
-             <div className="w-8 h-8 bg-emerald-600 text-white rounded-lg flex items-center justify-center font-bold text-xs shadow-sm">
+            <div className="w-8 h-8 bg-emerald-600 text-white rounded-lg flex items-center justify-center font-bold text-xs shadow-sm">
               HM
             </div>
             <span className="font-bold text-lg text-emerald-800">Healthcare Manager</span>
           </div>
-          
-          <p className="text-sm text-slate-400">
-            © 2026 Healthcare Manager. All rights reserved.
-          </p>
         </div>
       </footer>
     </div>

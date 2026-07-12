@@ -28,7 +28,11 @@ export default function Home() {
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
           <div className={`${baseAnimClass}`}>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-slate-900 mb-6 leading-tight tracking-tight">
-              Your <span className="text-emerald-600">Medical Practice</span>
+              Your <span className="text-emerald-600">Medical Practice</span>,{' '}
+              <span className="relative inline-block">
+                <span className="relative z-10 bg-gradient-to-r from-blue-600 to-emerald-500 bg-clip-text text-transparent">Modernized.</span>
+                <span className="absolute -bottom-1 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-emerald-400 rounded-full opacity-60"></span>
+              </span>
             </h1>
             <p className="text-lg md:text-xl text-slate-600 mb-10 max-w-xl">
               Effortlessly manage appointments and follow-ups with our intelligent medical management suite designed for the precision age.
@@ -124,6 +128,60 @@ export default function Home() {
               <p className="text-blue-100">
                 Automated emails and medication reminders powered by robust background workers and retry queues.
               </p>
+            </div>
+
+            {/* Feature 6: Telehealth Video Calls */}
+            <div className={`md:col-span-3 lg:col-span-6 bg-gradient-to-br from-emerald-600 to-teal-700 text-white p-8 rounded-3xl hover:shadow-xl transition-all duration-500 group ${baseAnimClass} delay-100 flex flex-col md:flex-row gap-8 items-center overflow-hidden relative`}>
+              <div className="flex-1 z-10">
+                <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mb-6">
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.069A1 1 0 0121 8.868v6.264a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                </div>
+                <h3 className="text-2xl font-bold text-white mb-3">Telehealth Video Calls</h3>
+                <p className="text-emerald-100">
+                  Secure, browser-based video consultations with time-windowed access control. Doctors approve calls; patients join within the scheduled UTC window.
+                </p>
+              </div>
+              <div className="hidden md:flex w-1/3 h-32 items-center justify-center opacity-20">
+                <svg className="w-28 h-28 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 10l4.553-2.069A1 1 0 0121 8.868v6.264a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+              </div>
+            </div>
+
+            {/* Feature 7: Stripe Payments */}
+            <div className={`md:col-span-3 lg:col-span-3 bg-white p-8 rounded-3xl shadow-sm hover:shadow-xl transition-all duration-500 group ${baseAnimClass} delay-200`}>
+              <div className="w-16 h-16 bg-violet-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-violet-100 transition-colors duration-300">
+                <svg className="w-8 h-8 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 mb-3">Stripe Payments</h3>
+              <p className="text-slate-600">
+                Seamless consultation fee collection via Stripe Checkout with real-time payment verification before appointment confirmation.
+              </p>
+            </div>
+
+            {/* Feature 8: Prescriptions */}
+            <div className={`md:col-span-3 lg:col-span-3 bg-amber-50 p-8 rounded-3xl hover:shadow-xl transition-all duration-500 group ${baseAnimClass} delay-300`}>
+              <div className="w-16 h-16 bg-amber-100 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-amber-200 transition-colors duration-300">
+                <svg className="w-8 h-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 mb-3">Digital Prescriptions</h3>
+              <p className="text-slate-600">
+                Doctors issue structured prescriptions post-visit; patients access their complete medication history from their dashboard.
+              </p>
+            </div>
+
+            {/* Feature 9: Appointment History */}
+            <div className={`md:col-span-6 lg:col-span-6 bg-slate-900 text-white p-8 rounded-3xl hover:shadow-xl transition-all duration-500 group ${baseAnimClass} delay-100 flex items-center gap-8 overflow-hidden relative`}>
+              <div className="flex-1 z-10">
+                <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mb-6">
+                  <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                </div>
+                <h3 className="text-2xl font-bold text-white mb-3">Full Appointment History</h3>
+                <p className="text-slate-300">
+                  Patients access a complete paginated history of all appointments — past, upcoming, and cancelled — with AI summaries and prescriptions attached per visit.
+                </p>
+              </div>
+              <div className="hidden lg:flex w-1/3 h-28 items-center justify-center opacity-10">
+                <svg className="w-32 h-32 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={0.8} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
+              </div>
             </div>
 
           </div>

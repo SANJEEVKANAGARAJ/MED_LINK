@@ -16,6 +16,8 @@ const prescriptionsRoutes = require('./api/prescriptions/prescriptions.routes');
 const usersRoutes = require('./api/users/users.routes');
 const analyticsRoutes = require('./api/analytics/analytics.routes');
 const paymentsRoutes = require('./api/payments/payments.routes');
+const reviewsRoutes = require('./api/reviews/reviews.routes');
+const pharmacyRoutes = require('./api/pharmacy/pharmacy.routes');
 const globalErrorHandler = require('./common/middleware/error.middleware');
 const initCronJobs = require('./jobs/cron');
 
@@ -52,6 +54,8 @@ app.use('/api/users', usersRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/payments', paymentsRoutes);
 app.use('/api', prescriptionsRoutes);
+app.use('/api', reviewsRoutes);
+app.use('/api', pharmacyRoutes);
 
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date() });

@@ -20,5 +20,15 @@ export const patientApi = {
   verifyPayment: (sessionId) => axiosInstance.get(`/payments/verify?session_id=${sessionId}`),
   getPaymentByAppointment: (appointmentId) => axiosInstance.get(`/payments/session/${appointmentId}`),
   getTelehealthStatus: (appointmentId) => axiosInstance.get(`/appointments/${appointmentId}/telehealth-status`),
+
+  // Pharmacy Marketplace
+  getMarketplace: () => axiosInstance.get('/pharmacy/marketplace'),
+  createPharmacyOrderSession: (data) => axiosInstance.post('/pharmacy/order-session', data),
+  verifyPharmacyOrder: (sessionId) => axiosInstance.get(`/pharmacy/verify-order?session_id=${sessionId}`),
+  getMyOrders: () => axiosInstance.get('/pharmacy/my-orders'),
+
+  // Reviews
+  submitReview: (data) => axiosInstance.post('/reviews', data),
+  getDoctorReviews: (doctorId) => axiosInstance.get(`/reviews/doctor/${doctorId}`),
 };
 

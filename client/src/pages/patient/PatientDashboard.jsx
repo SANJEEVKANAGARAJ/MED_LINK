@@ -27,11 +27,13 @@ const PatientDashboard = () => {
         const appointmentsArray = res.data?.data?.data || [];
         const upcoming = appointmentsArray.filter(app => {
           if (app.status !== 'booked') return false;
-          const appDate = new Date(app.appointment_date);
-          const [hours, minutes] = app.slot_time.split(':');
-          appDate.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
-          app.parsedDate = appDate;
-          return isAfter(appDate, now);
+          // appointment_date and slot_time are stored/treated as UTC on the server.
+          // Build an explicit UTC ISO string so the comparison is timezone-safe.
+          const dateStr = new Date(app.appointment_date).toISOString().split('T')[0];
+          const slotStr = app.slot_time.substring(0, 8); // HH:MM:SS
+          const appDateUTC = new Date(`${dateStr}T${slotStr}Z`);
+          app.parsedDate = appDateUTC;
+          return isAfter(appDateUTC, now);
         });
         upcoming.sort((a, b) => a.parsedDate - b.parsedDate);
         setAppointments(upcoming);
@@ -109,7 +111,9 @@ const PatientDashboard = () => {
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {appointments.map((appointment) => {
-            const dateObj = new Date(appointment.appointment_date);
+            // Use UTC date string for display so it matches the stored UTC date.
+            const dateStr = new Date(appointment.appointment_date).toISOString().split('T')[0];
+            const dateObj = new Date(`${dateStr}T00:00:00`);
             const isAppToday = isToday(dateObj);
             
             return (
@@ -132,6 +136,7 @@ const PatientDashboard = () => {
                         <div className="flex items-center text-sm text-gray-700">
                           <Clock className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
                           <time>{appointment.slot_time.substring(0, 5)}</time>
+                          <span className="ml-1 text-xs text-gray-400">(UTC)</span>
                         </div>
                       </div>
                     </div>
