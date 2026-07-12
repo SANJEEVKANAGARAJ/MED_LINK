@@ -1,31 +1,3 @@
-# Healthcare Appointment and Follow-up Manager
-
-![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
-![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)
-![AWS](https://img.shields.io/badge/AWS-FF9900?style=for-the-badge&logo=amazonaws&logoColor=white)
-
-🚀 **Live Deployment:** [http://3.109.46.106](http://3.109.46.106) (Deployed on AWS EC2)
-
-A full-stack healthcare appointment and checkout platform with four portal interfaces (Patient, Doctor, Admin, Pharmacy). Patients can search doctors, book slots via a secure hold-and-checkout lock, pay with Stripe, submit symptoms for AI pre-visit summaries, and buy prescribed medicines directly from pharmacies. Doctors manage schedules, conduct secure Jitsi WebRTC video consultations, write notes, and issue prescriptions with automated medication reminders. Pharmacies manage medicine inventories and ship patient orders. The system handles dual Google Calendar syncs and background email notifications.
-
-## Table of Contents
-
-- [Architecture Overview](#architecture-overview)
-- [Folder Structure](#folder-structure)
-- [Tech Stack](#tech-stack)
-- [Setup and Installation](#setup-and-installation)
-- [Environment Variables](#environment-variables)
-- [Database Schema](#database-schema)
-- [API Documentation](#api-documentation)
-- [LLM Prompts & Fallbacks](#llm-prompts--fallbacks)
-- [Google Calendar Setup](#google-calendar-setup)
-- [Background Jobs](#background-jobs)
-- [Testing](#testing)
-- [Deployment](#deployment)
-- [Assumptions](#assumptions)
-
----
 
 ## Architecture Overview
 
