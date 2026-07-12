@@ -22,13 +22,33 @@ async function runMigrations() {
     await pool.query('ALTER TABLE appointments ADD COLUMN IF NOT EXISTS is_approved BOOLEAN DEFAULT FALSE');
     console.log('Migration: is_approved column ensured.');
 
+    // Drop doctor_reviews and pharmacy_orders if column types are integer to allow recreating with UUID
+    await pool.query(`
+      DO $$
+      BEGIN
+          IF EXISTS (
+              SELECT 1 FROM information_schema.columns 
+              WHERE table_name = 'doctor_reviews' AND column_name = 'appointment_id' AND data_type = 'integer'
+          ) THEN
+              DROP TABLE doctor_reviews CASCADE;
+          END IF;
+          
+          IF EXISTS (
+              SELECT 1 FROM information_schema.columns 
+              WHERE table_name = 'pharmacy_orders' AND column_name = 'patient_id' AND data_type = 'integer'
+          ) THEN
+              DROP TABLE pharmacy_orders CASCADE;
+          END IF;
+      END $$;
+    `);
+
     // Doctor reviews
     await pool.query(`
       CREATE TABLE IF NOT EXISTS doctor_reviews (
         id SERIAL PRIMARY KEY,
-        appointment_id INTEGER NOT NULL UNIQUE REFERENCES appointments(id) ON DELETE CASCADE,
-        patient_id INTEGER NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
-        doctor_id INTEGER NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
+        appointment_id UUID NOT NULL UNIQUE REFERENCES appointments(id) ON DELETE CASCADE,
+        patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+        doctor_id UUID NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
         rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
         comment TEXT,
         created_at TIMESTAMPTZ DEFAULT NOW()
@@ -68,8 +88,8 @@ async function runMigrations() {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS pharmacy_orders (
         id SERIAL PRIMARY KEY,
-        prescription_id INTEGER REFERENCES prescriptions(id) ON DELETE SET NULL,
-        patient_id INTEGER NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+        prescription_id UUID REFERENCES prescriptions(id) ON DELETE SET NULL,
+        patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
         pharmacy_id INTEGER NOT NULL REFERENCES pharmacies(id) ON DELETE CASCADE,
         medicine_name VARCHAR(200) NOT NULL,
         qty INTEGER NOT NULL DEFAULT 1,

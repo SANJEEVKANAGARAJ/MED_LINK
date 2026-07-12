@@ -23,8 +23,8 @@ const statusIndex = (s) => TIMELINE_STEPS.findIndex(t => t.key === s);
 const DeliveryTimeline = ({ order }) => {
   const current = statusIndex(order.delivery_status);
   return (
-    <div className="mt-4 pt-4 border-t border-slate-700">
-      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">Delivery Tracking</p>
+    <div className="mt-4 pt-4 border-t border-gray-150">
+      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Delivery Tracking</p>
       <div className="relative flex items-start gap-0">
         {TIMELINE_STEPS.map((step, i) => {
           const Icon = step.icon;
@@ -34,16 +34,16 @@ const DeliveryTimeline = ({ order }) => {
             <div key={step.key} className="flex-1 flex flex-col items-center relative">
               {/* connector line */}
               {i < TIMELINE_STEPS.length - 1 && (
-                <div className={`absolute top-4 left-1/2 w-full h-0.5 ${done ? 'bg-emerald-500' : 'bg-slate-700'} transition-all`} />
+                <div className={`absolute top-4 left-1/2 w-full h-0.5 ${done ? 'bg-emerald-500' : 'bg-gray-200'} transition-all`} />
               )}
               <div className={`relative z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
                 done
                   ? 'bg-emerald-600 shadow-lg shadow-emerald-500/30'
-                  : 'bg-slate-800 border border-slate-700'
+                  : 'bg-white border border-gray-300'
               }`}>
-                <Icon className={`h-4 w-4 ${done ? 'text-white' : 'text-slate-600'}`} />
+                <Icon className={`h-4 w-4 ${done ? 'text-white' : 'text-gray-400'}`} />
               </div>
-              <p className={`text-xs mt-2 text-center font-medium ${active ? 'text-emerald-400' : done ? 'text-slate-300' : 'text-slate-600'}`}>
+              <p className={`text-xs mt-2 text-center font-medium ${active ? 'text-emerald-600 animate-pulse' : done ? 'text-gray-800' : 'text-gray-400'}`}>
                 {step.label}
               </p>
             </div>
@@ -53,10 +53,10 @@ const DeliveryTimeline = ({ order }) => {
       {order.tracking_updates?.length > 0 && (
         <div className="mt-4 space-y-1">
           {[...order.tracking_updates].reverse().map((t, i) => (
-            <div key={i} className="flex items-start gap-2 text-xs text-slate-400">
+            <div key={i} className="flex items-start gap-2 text-xs text-gray-500">
               <span className="text-emerald-500 mt-0.5">•</span>
               <span>{t.message}</span>
-              <span className="ml-auto text-slate-600 whitespace-nowrap">
+              <span className="ml-auto text-gray-400 whitespace-nowrap">
                 {new Date(t.timestamp).toLocaleString()}
               </span>
             </div>
@@ -68,7 +68,7 @@ const DeliveryTimeline = ({ order }) => {
 };
 
 // ── Address modal ─────────────────────────────────────────────────────────
-const AddressModal = ({ medicine, pharmacy, onConfirm, onClose }) => {
+const AddressModal = ({ medicine, pharmacy, prescriptionId, onClose }) => {
   const [address, setAddress] = useState('');
   const [qty, setQty] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -84,6 +84,7 @@ const AddressModal = ({ medicine, pharmacy, onConfirm, onClose }) => {
         price_usd: pharmacy.price_usd,
         qty,
         shipping_address: address,
+        prescription_id: prescriptionId || '',
       });
       window.location.href = res.data.data.url;
     } catch (err) {
@@ -93,51 +94,51 @@ const AddressModal = ({ medicine, pharmacy, onConfirm, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
-        <h2 className="text-lg font-bold text-white mb-1">Complete Your Order</h2>
-        <p className="text-sm text-slate-400 mb-5">
-          {medicine.medicine_name} from <span className="text-emerald-400">{pharmacy.pharmacy_name}</span>
+    <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white border border-gray-100 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+        <h2 className="text-lg font-bold text-gray-900 mb-1">Complete Your Order</h2>
+        <p className="text-sm text-gray-500 mb-5">
+          {medicine.medicine_name} from <span className="text-emerald-600 font-semibold">{pharmacy.pharmacy_name}</span>
         </p>
 
-        <div className="bg-slate-800/60 rounded-xl p-4 mb-5 space-y-1">
+        <div className="bg-gray-50 rounded-xl p-4 mb-5 space-y-2 border border-gray-100">
           <div className="flex justify-between text-sm">
-            <span className="text-slate-400">Unit Price</span>
-            <span className="text-white font-medium">${parseFloat(pharmacy.price_usd).toFixed(2)}</span>
+            <span className="text-gray-500">Unit Price</span>
+            <span className="text-gray-900 font-semibold">${parseFloat(pharmacy.price_usd).toFixed(2)}</span>
           </div>
           <div className="flex justify-between items-center text-sm">
-            <span className="text-slate-400">Quantity</span>
+            <span className="text-gray-500">Quantity</span>
             <div className="flex items-center gap-2">
-              <button onClick={() => setQty(q => Math.max(1, q - 1))} className="w-7 h-7 bg-slate-700 rounded-lg text-white hover:bg-slate-600">−</button>
-              <span className="text-white font-semibold w-5 text-center">{qty}</span>
-              <button onClick={() => setQty(q => q + 1)} className="w-7 h-7 bg-slate-700 rounded-lg text-white hover:bg-slate-600">+</button>
+              <button onClick={() => setQty(q => Math.max(1, q - 1))} className="w-7 h-7 bg-gray-200 hover:bg-gray-300 active:bg-gray-400 rounded-lg text-gray-700 transition-colors font-bold">−</button>
+              <span className="text-gray-900 font-bold w-5 text-center">{qty}</span>
+              <button onClick={() => setQty(q => q + 1)} className="w-7 h-7 bg-gray-200 hover:bg-gray-300 active:bg-gray-400 rounded-lg text-gray-700 transition-colors font-bold">+</button>
             </div>
           </div>
-          <div className="flex justify-between text-sm border-t border-slate-700 pt-2 mt-1">
-            <span className="text-slate-300 font-medium">Total</span>
-            <span className="text-emerald-400 font-bold">${(parseFloat(pharmacy.price_usd) * qty).toFixed(2)}</span>
+          <div className="flex justify-between text-sm border-t border-gray-200 pt-2 mt-1">
+            <span className="text-gray-700 font-semibold">Total</span>
+            <span className="text-emerald-600 font-extrabold text-base">${(parseFloat(pharmacy.price_usd) * qty).toFixed(2)}</span>
           </div>
         </div>
 
         <div className="mb-5">
-          <label className="block text-sm font-medium text-slate-300 mb-1.5">Delivery Address</label>
+          <label className="block text-sm font-semibold text-gray-700 mb-1.5">Delivery Address</label>
           <textarea
             value={address}
             onChange={e => setAddress(e.target.value)}
             placeholder="Enter your full delivery address..."
             rows={3}
-            className="w-full bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="w-full bg-white border border-gray-300 text-gray-900 placeholder-gray-400 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
           />
         </div>
 
         <div className="flex gap-3">
-          <button onClick={onClose} className="flex-1 py-2.5 border border-slate-700 rounded-xl text-slate-300 text-sm hover:bg-slate-800 transition-colors">
+          <button onClick={onClose} className="flex-1 py-2.5 border border-gray-300 rounded-xl text-gray-700 text-sm font-semibold hover:bg-gray-50 transition-colors">
             Cancel
           </button>
           <button
             onClick={handleBuy}
             disabled={loading}
-            className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-white text-sm font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+            className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-white text-sm font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-60 shadow-md shadow-emerald-500/20"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShoppingCart className="h-4 w-4" />}
             Pay with Stripe
@@ -184,6 +185,22 @@ const PharmacyMarketplace = () => {
     }
   };
 
+  // Auto-expand matched medicine from doctor's prescription dashboard redirect
+  useEffect(() => {
+    if (medicines.length > 0) {
+      const params = new URLSearchParams(window.location.search);
+      const buyMedName = params.get('buy');
+      if (buyMedName) {
+        const matched = medicines.find(
+          m => m.medicine_name.toLowerCase().includes(buyMedName.toLowerCase())
+        );
+        if (matched) {
+          setExpandedMed(matched.medicine_name);
+        }
+      }
+    }
+  }, [medicines]);
+
   // Verify order on redirect from Stripe
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -211,7 +228,7 @@ const PharmacyMarketplace = () => {
         <AddressModal
           medicine={orderModal.medicine}
           pharmacy={orderModal.pharmacy}
-          onConfirm={() => {}}
+          prescriptionId={orderModal.prescriptionId || new URLSearchParams(window.location.search).get('prescription_id') || ''}
           onClose={() => setOrderModal(null)}
         />
       )}

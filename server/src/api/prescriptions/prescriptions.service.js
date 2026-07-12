@@ -1,4 +1,6 @@
 const db = require('../../db');
+const { enqueueEmail } = require('../email/emailQueue.service');
+const { getPrescriptionTemplate } = require('../email/email.templates');
 
 class PrescriptionsService {
   async createPrescription(appointmentId, doctorId, patientId, clinicalNotes, medications) {
@@ -58,6 +60,33 @@ class PrescriptionsService {
       }
 
       await client.query('COMMIT');
+
+      // Send email notification to patient
+      try {
+        const patientInfo = await db.query(
+          `SELECT u.email, p.first_name, p.last_name
+           FROM patients p JOIN users u ON p.user_id = u.id
+           WHERE p.id = $1`, [patientId]
+        );
+        const doctorInfo = await db.query(
+          `SELECT d.first_name, d.last_name
+           FROM doctors d WHERE d.id = $1`, [doctorId]
+        );
+        if (patientInfo.rowCount > 0 && doctorInfo.rowCount > 0) {
+          const pt = patientInfo.rows[0];
+          const dr = doctorInfo.rows[0];
+          const patientName = `${pt.first_name} ${pt.last_name}`;
+          const doctorName = `${dr.first_name} ${dr.last_name}`;
+          await enqueueEmail(
+            pt.email,
+            `New Prescription from Dr. ${doctorName}`,
+            getPrescriptionTemplate(patientName, doctorName, clinicalNotes, medications)
+          );
+        }
+      } catch (emailErr) {
+        console.error('Prescription email notification failed (non-critical):', emailErr.message);
+      }
+
       return prescription;
     } catch (error) {
       await client.query('ROLLBACK');

@@ -28,6 +28,9 @@ import AppointmentHistory from './pages/patient/AppointmentHistory';
 import DoctorDashboard from './pages/doctor/DoctorDashboard';
 import AppointmentVisit from './pages/doctor/AppointmentVisit';
 import TelehealthRoom from './pages/shared/TelehealthRoom';
+import PharmacyList from './pages/admin/PharmacyList';
+import PharmacyForm from './pages/admin/PharmacyForm';
+import PharmacyMarketplace from './pages/patient/PharmacyMarketplace';
 
 import { Toaster } from 'react-hot-toast';
 
@@ -61,6 +64,9 @@ export default function App() {
             <Route path="/admin/doctors" element={<DoctorList />} />
             <Route path="/admin/doctors/new" element={<DoctorForm />} />
             <Route path="/admin/doctors/:id/edit" element={<DoctorForm />} />
+            <Route path="/admin/pharmacies" element={<PharmacyList />} />
+            <Route path="/admin/pharmacies/new" element={<PharmacyForm />} />
+            <Route path="/admin/pharmacies/:id/edit" element={<PharmacyForm />} />
             <Route path="/admin/leave" element={<LeaveManagement />} />
           </Route>
 
@@ -78,6 +84,7 @@ export default function App() {
             <Route path="/patient/book/:doctorId" element={<BookingFlow />} />
             <Route path="/patient/booking/success" element={<BookingSuccess />} />
             <Route path="/patient/history" element={<AppointmentHistory />} />
+            <Route path="/patient/pharmacy" element={<PharmacyMarketplace />} />
           </Route>
 
           {/* Protected Routes - Shared Doctor & Patient */}
@@ -92,4 +99,3 @@ export default function App() {
     </AuthProvider>
   );
 }
-

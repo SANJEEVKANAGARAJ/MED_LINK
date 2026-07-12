@@ -92,7 +92,6 @@ const Login = () => {
               Register here
             </Link>
           </p>
-
           <div className="mt-8">
             <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
               {apiError && (

@@ -1,6 +1,6 @@
 const db = require('../../db');
 const { enqueueEmail } = require('../email/emailQueue.service');
-const { getBookingConfirmationTemplate, getCancellationTemplate, getRescheduleTemplate } = require('../email/email.templates');
+const { getBookingConfirmationTemplate, getCancellationTemplate, getRescheduleTemplate, getVideoCallApprovedTemplate } = require('../email/email.templates');
 const calendarService = require('../calendar/calendar.service');
 
 class AppointmentsService {
@@ -614,6 +614,35 @@ class AppointmentsService {
       `UPDATE appointments SET is_approved = TRUE, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *`,
       [appointmentId]
     );
+
+    // Send email notification to patient
+    try {
+      const infoResult = await db.query(
+        `SELECT p.first_name AS patient_first, p.last_name AS patient_last, u.email AS patient_email,
+                d.first_name AS doctor_first, d.last_name AS doctor_last,
+                a.appointment_date, a.slot_time
+         FROM appointments a
+         JOIN patients p ON a.patient_id = p.id
+         JOIN users u ON p.user_id = u.id
+         JOIN doctors d ON a.doctor_id = d.id
+         WHERE a.id = $1`,
+        [appointmentId]
+      );
+      if (infoResult.rowCount > 0) {
+        const info = infoResult.rows[0];
+        const patientName = `${info.patient_first} ${info.patient_last}`;
+        const doctorName = `${info.doctor_first} ${info.doctor_last}`;
+        const dateStr = new Date(info.appointment_date).toDateString();
+        const timeStr = info.slot_time;
+        await enqueueEmail(
+          info.patient_email,
+          `Video Call Approved with Dr. ${doctorName}`,
+          getVideoCallApprovedTemplate(patientName, doctorName, dateStr, timeStr)
+        );
+      }
+    } catch (emailErr) {
+      console.error('Video call approval email notification failed (non-critical):', emailErr.message);
+    }
 
     return result.rows[0];
   }

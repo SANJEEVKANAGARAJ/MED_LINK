@@ -96,6 +96,7 @@ class PatientsService {
         aipost.medication_schedule,
         aipost.follow_up_instructions,
         pr.clinical_notes AS prescription_notes,
+        pr.id AS prescription_id,
         pr.medications AS medications
       FROM appointments a
       JOIN doctors d ON a.doctor_id = d.id

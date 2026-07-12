@@ -5,44 +5,83 @@ const Stripe = require('stripe');
 
 const getStripe = () => Stripe(process.env.STRIPE_SECRET_KEY);
 
+const DEFAULT_MEDICINES = [
+  { medicine_name: 'Amoxicillin 500mg',   price_usd: 8.50,  stock_qty: 100 },
+  { medicine_name: 'Paracetamol 500mg',   price_usd: 3.20,  stock_qty: 100 },
+  { medicine_name: 'Ibuprofen 400mg',     price_usd: 5.75,  stock_qty: 100 },
+  { medicine_name: 'Metformin 500mg',     price_usd: 12.00, stock_qty: 100 },
+  { medicine_name: 'Atorvastatin 10mg',   price_usd: 18.50, stock_qty: 100 },
+  { medicine_name: 'Omeprazole 20mg',     price_usd: 9.80,  stock_qty: 100 },
+  { medicine_name: 'Cetirizine 10mg',     price_usd: 4.50,  stock_qty: 100 },
+  { medicine_name: 'Azithromycin 250mg',  price_usd: 14.25, stock_qty: 100 },
+  { medicine_name: 'Losartan 50mg',       price_usd: 11.00, stock_qty: 100 },
+  { medicine_name: 'Vitamin D3 1000IU',   price_usd: 7.60,  stock_qty: 100 },
+];
+
 class PharmacyController {
-  // POST /api/pharmacy/login
-  async login(req, res, next) {
+  // ── Admin: list all pharmacies ──
+  async adminListPharmacies(req, res, next) {
     try {
-      const { email, password } = req.body;
-      const data = await pharmacyService.login(email, password);
-      return successResponse(res, 200, 'Pharmacy login successful', data);
+      const pharmacies = await pharmacyService.getAllPharmacies();
+      return successResponse(res, 200, 'Pharmacies fetched', pharmacies);
     } catch (error) { next(error); }
   }
 
-  // GET /api/pharmacy/medicines  (pharmacy auth)
-  async getMedicines(req, res, next) {
+  // ── Admin: create pharmacy (auto-seeds 10 medicines) ──
+  async adminCreatePharmacy(req, res, next) {
     try {
-      const medicines = await pharmacyService.getMedicines(req.user.id);
+      const { name, address, email, phone } = req.body;
+      if (!name || !email) return res.status(400).json({ success: false, error: 'Name and email are required' });
+      const pharmacy = await pharmacyService.createPharmacy({
+        name, address, email, phone,
+        password: 'pharmacy123', // default password, admin can change
+        medicines: DEFAULT_MEDICINES,
+      });
+      return successResponse(res, 201, 'Pharmacy created', pharmacy);
+    } catch (error) { next(error); }
+  }
+
+  // ── Admin: update pharmacy info ──
+  async adminUpdatePharmacy(req, res, next) {
+    try {
+      const { name, address, email, phone } = req.body;
+      if (!name || !email) return res.status(400).json({ success: false, error: 'Name and email are required' });
+      const pharmacy = await pharmacyService.updatePharmacy(req.params.id, { name, address, email, phone });
+      return successResponse(res, 200, 'Pharmacy updated', pharmacy);
+    } catch (error) { next(error); }
+  }
+
+  // ── Admin: delete pharmacy ──
+  async adminDeletePharmacy(req, res, next) {
+    try {
+      await pharmacyService.deletePharmacy(req.params.id);
+      return successResponse(res, 200, 'Pharmacy deleted', null);
+    } catch (error) { next(error); }
+  }
+
+  // ── Admin: get medicines for a pharmacy ──
+  async adminGetMedicines(req, res, next) {
+    try {
+      const medicines = await pharmacyService.getMedicines(req.params.id);
       return successResponse(res, 200, 'Medicines fetched', medicines);
     } catch (error) { next(error); }
   }
 
-  // PUT /api/pharmacy/medicines/:id  (pharmacy auth)
-  async updateMedicine(req, res, next) {
+  // ── Admin: update medicine price/stock ──
+  async adminUpdateMedicine(req, res, next) {
     try {
-      const med = await pharmacyService.updateMedicine(req.user.id, req.params.id, req.body);
+      const { pharmacy_id, price_usd, stock_qty } = req.body;
+      if (!pharmacy_id) return res.status(400).json({ success: false, error: 'pharmacy_id required' });
+      const med = await pharmacyService.updateMedicine(pharmacy_id, req.params.id, { price_usd, stock_qty });
       return successResponse(res, 200, 'Medicine updated', med);
     } catch (error) { next(error); }
   }
 
-  // GET /api/pharmacy/orders  (pharmacy auth)
-  async getOrders(req, res, next) {
+  // ── Admin: update order delivery status ──
+  async adminUpdateOrderStatus(req, res, next) {
     try {
-      const orders = await pharmacyService.getPharmacyOrders(req.user.id);
-      return successResponse(res, 200, 'Orders fetched', orders);
-    } catch (error) { next(error); }
-  }
-
-  // PUT /api/pharmacy/orders/:id/status  (pharmacy auth)
-  async updateOrderStatus(req, res, next) {
-    try {
-      const order = await pharmacyService.updateOrderDeliveryStatus(req.user.id, req.params.id, req.body.delivery_status);
+      const { id, orderId } = req.params;
+      const order = await pharmacyService.updateOrderDeliveryStatus(id, orderId, req.body.delivery_status);
       return successResponse(res, 200, 'Order status updated', order);
     } catch (error) { next(error); }
   }

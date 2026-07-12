@@ -99,6 +99,46 @@ const getPasswordResetTemplate = (resetLink) => {
   `;
 };
 
+const getPrescriptionTemplate = (patientName, doctorName, clinicalNotes, medications) => {
+  const medList = (medications || [])
+    .map(m => `<li style="margin:4px 0;"><strong>${m.name}</strong> — ${m.dosage || ''} ${m.frequency || ''} for ${m.durationDays || ''} day(s)</li>`)
+    .join('');
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+      <h2 style="color: #16a34a;">📋 New Prescription from Your Doctor</h2>
+      <p>Dear ${patientName},</p>
+      <p>Dr. <strong>${doctorName}</strong> has written a prescription and clinical notes for your recent consultation.</p>
+      <div style="background: #f0fdf4; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #16a34a;">
+        <h3 style="margin-top: 0; color: #15803d;">Clinical Notes</h3>
+        <p style="white-space: pre-wrap;">${clinicalNotes}</p>
+      </div>
+      ${medList ? `
+      <div style="background: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;">
+        <h3 style="margin-top: 0; color: #333;">Medications Prescribed</h3>
+        <ul style="margin:0; padding-left: 20px;">${medList}</ul>
+      </div>` : ''}
+      <p>Please follow your doctor's instructions carefully. You can view and purchase medicines from your Patient Portal.</p>
+      <p>Best Regards,<br>Healthcare Clinic</p>
+    </div>
+  `;
+};
+
+const getVideoCallApprovedTemplate = (patientName, doctorName, date, time) => {
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+      <h2 style="color: #16a34a;">🎥 Your Video Consultation Has Been Approved!</h2>
+      <p>Dear ${patientName},</p>
+      <p>Great news! Dr. <strong>${doctorName}</strong> has approved your upcoming video consultation.</p>
+      <div style="background: #f0fdf4; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #16a34a;">
+        <p style="margin: 5px 0;"><strong>Date:</strong> ${date}</p>
+        <p style="margin: 5px 0;"><strong>Time:</strong> ${time}</p>
+      </div>
+      <p>Please log in to your Patient Portal and join the video room at the scheduled time. You may join up to 10 minutes early.</p>
+      <p>Best Regards,<br>Healthcare Clinic</p>
+    </div>
+  `;
+};
+
 module.exports = {
   getBookingConfirmationTemplate,
   getReminderTemplate,
@@ -107,4 +147,7 @@ module.exports = {
   getRescheduleTemplate,
   getMedicationReminderTemplate,
   getPasswordResetTemplate,
+  getPrescriptionTemplate,
+  getVideoCallApprovedTemplate,
 };
+

@@ -26,6 +26,7 @@ const BookingFlow = () => {
     { name: 'Dashboard', href: '/patient/dashboard' },
     { name: 'Search Doctors', href: '/patient/doctors' },
     { name: 'Appointment History', href: '/patient/history' },
+    { name: 'Pharmacy', href: '/patient/pharmacy' },
   ];
 
   const CONSULTATION_FEE = 50; // USD — mirrors server CONSULTATION_FEE_USD

@@ -19,6 +19,7 @@ const LeaveManagement = () => {
   const navigation = [
     { name: 'Dashboard', href: '/admin/dashboard' },
     { name: 'Manage Doctors', href: '/admin/doctors' },
+    { name: 'Manage Pharmacies', href: '/admin/pharmacies' },
     { name: 'Leave Management', href: '/admin/leave' },
   ];
 

@@ -20,9 +20,17 @@ export const adminApi = {
   addDoctorLeave: (id, data) => axiosInstance.post(`/doctors/${id}/leave`, data),
   
   removeDoctorLeave: (id, date) => axiosInstance.delete(`/doctors/${id}/leave/${date}`),
-  
+
   getDashboardMetrics: async () => {
     const response = await axiosInstance.get('/analytics/dashboard');
     return response.data.data;
-  }
+  },
+
+  getAllPharmacies: () => axiosInstance.get('/pharmacy/admin/list'),
+  createPharmacy: (data) => axiosInstance.post('/pharmacy/admin/create', data),
+  updatePharmacy: (id, data) => axiosInstance.put(`/pharmacy/admin/${id}`, data),
+  deletePharmacy: (id) => axiosInstance.delete(`/pharmacy/admin/${id}`),
+  getPharmacyMedicines: (id) => axiosInstance.get(`/pharmacy/admin/${id}/medicines`),
+  updatePharmacyMedicine: (pharmacyId, medicineId, data) => axiosInstance.put(`/pharmacy/admin/medicines/${medicineId}`, { pharmacy_id: pharmacyId, ...data }),
+  updateOrderStatus: (pharmacyId, orderId, data) => axiosInstance.put(`/pharmacy/admin/${pharmacyId}/orders/${orderId}/status`, data)
 };

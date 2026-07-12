@@ -3,6 +3,99 @@ const db = require('../../db');
 const { signAccessToken, signRefreshToken } = require('../../common/utils/jwt');
 
 class PharmacyService {
+  // Admin controls for pharmacy accounts and their inventory.
+  async getAllPharmacies() {
+    const result = await db.query(
+      `SELECT p.id, p.name, p.address, p.email, p.phone, p.created_at,
+              COUNT(pm.id)::int AS medicine_count
+       FROM pharmacies p
+       LEFT JOIN pharmacy_medicines pm ON pm.pharmacy_id = p.id
+       GROUP BY p.id
+       ORDER BY p.name`
+    );
+    return result.rows;
+  }
+
+  async getPharmacyById(id) {
+    const result = await db.query(
+      'SELECT id, name, address, email, phone, created_at FROM pharmacies WHERE id = $1', [id]
+    );
+    if (result.rowCount === 0) throw { statusCode: 404, message: 'Pharmacy not found' };
+    return { ...result.rows[0], medicines: await this.getMedicines(id) };
+  }
+
+  _validatePharmacy({ name, email, password, medicines }, isCreating) {
+    if (!name || String(name).trim().length < 2) throw { statusCode: 400, message: 'Pharmacy name is required' };
+    if (!email || !/^\S+@\S+\.\S+$/.test(email)) throw { statusCode: 400, message: 'A valid email is required' };
+    if ((isCreating && (!password || String(password).length < 8)) || (password && String(password).length < 8)) {
+      throw { statusCode: 400, message: 'Password must be at least 8 characters' };
+    }
+    if (medicines !== undefined && !Array.isArray(medicines)) throw { statusCode: 400, message: 'Medicines must be a list' };
+    for (const medicine of medicines || []) {
+      if (!medicine.medicine_name || !String(medicine.medicine_name).trim()) throw { statusCode: 400, message: 'Each medicine needs a name' };
+      if (!Number.isFinite(Number(medicine.price_usd)) || Number(medicine.price_usd) < 0) throw { statusCode: 400, message: 'Medicine price must be zero or greater' };
+      if (!Number.isInteger(Number(medicine.stock_qty)) || Number(medicine.stock_qty) < 0) throw { statusCode: 400, message: 'Medicine stock must be a whole number of zero or greater' };
+    }
+  }
+
+  async _replaceMedicines(client, pharmacyId, medicines) {
+    if (medicines === undefined) return;
+    await client.query('DELETE FROM pharmacy_medicines WHERE pharmacy_id = $1', [pharmacyId]);
+    for (const medicine of medicines) {
+      await client.query(
+        'INSERT INTO pharmacy_medicines (pharmacy_id, medicine_name, price_usd, stock_qty) VALUES ($1, $2, $3, $4)',
+        [pharmacyId, String(medicine.medicine_name).trim(), Number(medicine.price_usd), Number(medicine.stock_qty)]
+      );
+    }
+  }
+
+  async createPharmacy(data) {
+    this._validatePharmacy(data, true);
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const passwordHash = await bcrypt.hash(data.password, 10);
+      const result = await client.query(
+        'INSERT INTO pharmacies (name, address, email, password_hash, phone) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+        [data.name.trim(), data.address?.trim() || null, data.email.trim().toLowerCase(), passwordHash, data.phone?.trim() || null]
+      );
+      await this._replaceMedicines(client, result.rows[0].id, data.medicines || []);
+      await client.query('COMMIT');
+      return this.getPharmacyById(result.rows[0].id);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      if (error.code === '23505') throw { statusCode: 409, message: 'A pharmacy with this email or medicine already exists' };
+      throw error;
+    } finally { client.release(); }
+  }
+
+  async updatePharmacy(id, data) {
+    this._validatePharmacy(data, false);
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const values = [data.name.trim(), data.address?.trim() || null, data.email.trim().toLowerCase(), data.phone?.trim() || null, id];
+      let passwordField = '';
+      if (data.password) { values.push(await bcrypt.hash(data.password, 10)); passwordField = ', password_hash = $6'; }
+      const result = await client.query(
+        `UPDATE pharmacies SET name = $1, address = $2, email = $3, phone = $4${passwordField} WHERE id = $5 RETURNING id`, values
+      );
+      if (result.rowCount === 0) throw { statusCode: 404, message: 'Pharmacy not found' };
+      await this._replaceMedicines(client, id, data.medicines);
+      await client.query('COMMIT');
+      return this.getPharmacyById(id);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      if (error.code === '23505') throw { statusCode: 409, message: 'A pharmacy with this email or medicine already exists' };
+      throw error;
+    } finally { client.release(); }
+  }
+
+  async deletePharmacy(id) {
+    const result = await db.query('DELETE FROM pharmacies WHERE id = $1', [id]);
+    if (result.rowCount === 0) throw { statusCode: 404, message: 'Pharmacy not found' };
+  }
+
   // ──────────── Auth ────────────
   async login(email, password) {
     const result = await db.query('SELECT * FROM pharmacies WHERE email = $1', [email]);

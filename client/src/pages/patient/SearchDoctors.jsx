@@ -18,6 +18,7 @@ const SearchDoctors = () => {
     { name: 'Dashboard', href: '/patient/dashboard' },
     { name: 'Search Doctors', href: '/patient/doctors' },
     { name: 'Appointment History', href: '/patient/history' },
+    { name: 'Pharmacy', href: '/patient/pharmacy' },
   ];
 
   useEffect(() => {

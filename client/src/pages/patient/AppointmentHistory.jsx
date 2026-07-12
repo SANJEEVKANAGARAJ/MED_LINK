@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import DashboardLayout from '../../components/DashboardLayout';
 import { patientApi } from '../../api/patient';
-import { FileText, Stethoscope, Pill, Calendar, Clock, ChevronDown, ChevronUp, Download } from 'lucide-react';
+import { FileText, Stethoscope, Pill, Calendar, Clock, ChevronDown, ChevronUp, Download, ShoppingCart } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'react-hot-toast';
 import { SkeletonCard } from '../../components/ui/Skeleton';
@@ -174,6 +175,7 @@ const AppointmentHistory = () => {
     { name: 'Dashboard', href: '/patient/dashboard' },
     { name: 'Search Doctors', href: '/patient/doctors' },
     { name: 'Appointment History', href: '/patient/history' },
+    { name: 'Pharmacy', href: '/patient/pharmacy' },
   ];
 
   useEffect(() => {
@@ -307,14 +309,26 @@ const AppointmentHistory = () => {
                                 if (meds && Array.isArray(meds) && meds.length > 0 && meds[0] !== null) {
                                   return (
                                     <div className="mt-4 border-t border-emerald-100 pt-4">
-                                      <h6 className="font-semibold text-emerald-800 mb-2">Prescribed Medications:</h6>
-                                      <ul className="list-disc pl-5 space-y-1">
+                                      <h6 className="font-semibold text-emerald-800 mb-3 text-sm">Prescribed Medications:</h6>
+                                      <div className="space-y-3">
                                         {meds.filter(med => med !== null).map((med, idx) => (
-                                          <li key={idx}>
-                                            <span className="font-medium">{med.medication_name}</span> - {med.dosage}, {med.frequency} (for {med.duration_days} days)
-                                          </li>
+                                          <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-emerald-50/50 rounded-xl border border-emerald-100/70">
+                                            <div>
+                                              <p className="font-bold text-gray-955 text-sm">{med.medication_name}</p>
+                                              <p className="text-xs text-gray-500">
+                                                {med.dosage} · {med.frequency?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())} · for {med.duration_days} days
+                                              </p>
+                                            </div>
+                                            <Link
+                                              to={`/patient/pharmacy?buy=${encodeURIComponent(med.medication_name)}&prescription_id=${record.prescription_id || ''}`}
+                                              className="inline-flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3.5 py-2 rounded-lg shadow-sm transition-all flex-shrink-0"
+                                            >
+                                              <ShoppingCart className="h-3.5 w-3.5" />
+                                              Buy Now
+                                            </Link>
+                                          </div>
                                         ))}
-                                      </ul>
+                                      </div>
                                     </div>
                                   );
                                 }

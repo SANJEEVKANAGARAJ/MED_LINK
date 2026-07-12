@@ -2,33 +2,22 @@ const express = require('express');
 const router = express.Router();
 const pharmacyController = require('./pharmacy.controller');
 const { authenticate } = require('../../common/middleware/auth.middleware');
-const { verifyAccessToken } = require('../../common/utils/jwt');
 const { errorResponse } = require('../../common/utils/response');
 
-// Middleware: verify pharmacy JWT token specifically
-const pharmacyAuth = (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return errorResponse(res, 401, 'Access denied. No token provided.');
-  }
-  try {
-    const decoded = verifyAccessToken(authHeader.split(' ')[1]);
-    if (decoded.role !== 'pharmacy') return errorResponse(res, 403, 'Forbidden: pharmacy access only.');
-    req.user = decoded;
-    next();
-  } catch {
-    return errorResponse(res, 401, 'Invalid or expired token.');
-  }
+// Middleware: admin-only guard
+const adminOnly = (req, res, next) => {
+  if (req.user?.role !== 'admin') return errorResponse(res, 403, 'Admin access only.');
+  next();
 };
 
-// ── Public ──
-router.post('/pharmacy/login', pharmacyController.login.bind(pharmacyController));
-
-// ── Pharmacy portal (pharmacy JWT) ──
-router.get('/pharmacy/medicines', pharmacyAuth, pharmacyController.getMedicines.bind(pharmacyController));
-router.put('/pharmacy/medicines/:id', pharmacyAuth, pharmacyController.updateMedicine.bind(pharmacyController));
-router.get('/pharmacy/orders', pharmacyAuth, pharmacyController.getOrders.bind(pharmacyController));
-router.put('/pharmacy/orders/:id/status', pharmacyAuth, pharmacyController.updateOrderStatus.bind(pharmacyController));
+// ── Admin Pharmacy Management ──
+router.get('/pharmacy/admin/list', authenticate, adminOnly, pharmacyController.adminListPharmacies.bind(pharmacyController));
+router.post('/pharmacy/admin/create', authenticate, adminOnly, pharmacyController.adminCreatePharmacy.bind(pharmacyController));
+router.put('/pharmacy/admin/:id', authenticate, adminOnly, pharmacyController.adminUpdatePharmacy.bind(pharmacyController));
+router.delete('/pharmacy/admin/:id', authenticate, adminOnly, pharmacyController.adminDeletePharmacy.bind(pharmacyController));
+router.get('/pharmacy/admin/:id/medicines', authenticate, adminOnly, pharmacyController.adminGetMedicines.bind(pharmacyController));
+router.put('/pharmacy/admin/medicines/:id', authenticate, adminOnly, pharmacyController.adminUpdateMedicine.bind(pharmacyController));
+router.put('/pharmacy/admin/:id/orders/:orderId/status', authenticate, adminOnly, pharmacyController.adminUpdateOrderStatus.bind(pharmacyController));
 
 // ── Patient routes ──
 router.get('/pharmacy/marketplace', authenticate, pharmacyController.getMarketplace.bind(pharmacyController));
