@@ -25,9 +25,25 @@ const app = express();
 const PORT = process.env.PORT;
 
 app.use(helmet());
+
+// CORS: FRONTEND_URL can be a single URL or a comma-separated list of allowed origins.
+// Example for deploy: FRONTEND_URL=https://yourapp.vercel.app,http://localhost:5173
+const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL,
-  credentials: true
+  origin: (origin, callback) => {
+    // Allow server-to-server requests (no Origin header) and listed origins
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn(`CORS blocked request from origin: ${origin}`);
+      callback(new Error(`CORS policy does not allow origin: ${origin}`));
+    }
+  },
+  credentials: true,
 }));
 
 // Stripe Webhook needs the raw request body to construct/verify signatures
