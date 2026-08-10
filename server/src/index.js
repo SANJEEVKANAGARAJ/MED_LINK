@@ -26,24 +26,9 @@ const PORT = process.env.PORT;
 
 app.use(helmet());
 
-// CORS: FRONTEND_URL can be a single URL or a comma-separated list of allowed origins.
-// Example for deploy: FRONTEND_URL=http://13.60.163.213,http://localhost:5173,http://healthcare-app.duckdns.org
-const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173')
-  .split(',')
-  .map((o) => o.trim().replace(/\/$/, ''))
-  .filter(Boolean);
-
+// Allow all origins dynamically
 app.use(cors({
-  origin: (origin, callback) => {
-    const normalizedOrigin = origin ? origin.replace(/\/$/, '') : origin;
-    // Allow server-to-server requests (no Origin header) and listed origins
-    if (!origin || allowedOrigins.includes(normalizedOrigin)) {
-      callback(null, true);
-    } else {
-      console.warn(`CORS blocked request from origin: ${origin}`);
-      callback(new Error(`CORS policy does not allow origin: ${origin}`));
-    }
-  },
+  origin: true,
   credentials: true,
 }));
 
